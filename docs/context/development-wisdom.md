@@ -1328,3 +1328,34 @@ Keep the frontend as small as it can be while still demonstrating the system.
 No build step and no framework unless one earns its place. One HTML file, plain fetch, and the
 few elements needed to show what the backend does. A demo UI exists to make the agent legible;
 every extra layer is surface that has to be maintained and that hides the thing being shown.
+
+## Import Wisdom
+
+No imports inside functions. Every import belongs at the top of the module.
+
+A deferred import hides a dependency from anyone reading the file's head, makes the import
+cost unpredictable, and turns a missing package into a runtime failure at the worst moment
+instead of an error at startup. The usual excuses -- "it is optional", "it is slow to import",
+"it avoids a cycle" -- are each a symptom: an optional dependency belongs behind a real
+extras marker, a slow import belongs behind a factory, and a cycle means the seam is in the
+wrong place.
+
+```python
+# Bad -- the module's real dependencies are invisible from the top.
+def build_model(settings):
+    from groq import AsyncGroq
+    ...
+
+# Good.
+from groq import AsyncGroq
+
+def build_model(settings):
+    ...
+```
+
+Enforce it rather than remember it: ruff's `PLC0415`.
+
+```toml
+[tool.ruff.lint]
+extend-select = ["I", "UP", "B", "PLC0415"]
+```
