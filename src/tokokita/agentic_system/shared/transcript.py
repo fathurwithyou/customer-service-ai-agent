@@ -1,9 +1,4 @@
-"""Turn a stored transcript into the few lines a reader actually needs.
-
-Nothing in a message marks the output tool: `tool_kind` only tags tool-search and
-capability-load, so the agent's reply is found by the output tool's name, falling back to a
-TextPart for models that answer in plain text instead of a tool call.
-"""
+"""Read a stored transcript back into the few lines a person needs."""
 
 from __future__ import annotations
 
@@ -17,8 +12,6 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
-
-OUTPUT_TOOL = "final_result"
 
 
 class Turn(BaseModel):
@@ -46,14 +39,7 @@ def read(messages: list[ModelMessage]) -> list[Turn]:
         elif isinstance(message, ModelResponse):
             for part in message.parts:
                 if isinstance(part, ToolCallPart) and part.tool_call_id in ran:
-                    if part.tool_name == OUTPUT_TOOL:
-                        args = part.args_as_dict()
-                        turns.append(
-                            Turn(role="agent", text=str(args.get("message", "")), tools=tools)
-                        )
-                        tools = []
-                    else:
-                        tools.append(part.tool_name)
+                    tools.append(part.tool_name)
                 elif isinstance(part, TextPart) and part.content.strip():
                     turns.append(Turn(role="agent", text=part.content, tools=tools))
                     tools = []
@@ -63,8 +49,8 @@ def read(messages: list[ModelMessage]) -> list[Turn]:
 def outcome(messages: list[ModelMessage]) -> tuple[bool, int | None]:
     """Whether the turn was escalated, and to which ticket -- read from what ran.
 
-    Asking the model to report this instead would be asking it to restate a fact the runtime
-    already holds, and a restatement can disagree with the fact.
+    Asking the model to report this would be asking it to restate a fact the runtime already
+    holds, and a restatement can disagree with the fact.
     """
     escalated, ticket_id = False, None
     for message in messages:
