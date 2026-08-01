@@ -1,0 +1,238 @@
+# FastAPI - FastAPI
+
+> FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Pages
+
+- [FastAPI - FastAPI](https://fastapi.tiangolo.com): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## About
+
+- [About - FastAPI](https://fastapi.tiangolo.com/about/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Advanced
+
+- [Advanced User Guide - FastAPI](https://fastapi.tiangolo.com/advanced/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Additional Responses in OpenAPI - FastAPI](https://fastapi.tiangolo.com/advanced/additional-responses/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Additional Status Codes - FastAPI](https://fastapi.tiangolo.com/advanced/additional-status-codes/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Advanced Dependencies - FastAPI](https://fastapi.tiangolo.com/advanced/advanced-dependencies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Advanced Python Types - FastAPI](https://fastapi.tiangolo.com/advanced/advanced-python-types/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Async Tests - FastAPI](https://fastapi.tiangolo.com/advanced/async-tests/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Behind a Proxy - FastAPI](https://fastapi.tiangolo.com/advanced/behind-a-proxy/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Custom Response - HTML, Stream, File, others - FastAPI](https://fastapi.tiangolo.com/advanced/custom-response/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Using Dataclasses - FastAPI](https://fastapi.tiangolo.com/advanced/dataclasses/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Lifespan Events - FastAPI](https://fastapi.tiangolo.com/advanced/events/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Generating SDKs - FastAPI](https://fastapi.tiangolo.com/advanced/generate-clients/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [JSON with Bytes as Base64 - FastAPI](https://fastapi.tiangolo.com/advanced/json-base64-bytes/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Advanced Middleware - FastAPI](https://fastapi.tiangolo.com/advanced/middleware/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [OpenAPI Callbacks - FastAPI](https://fastapi.tiangolo.com/advanced/openapi-callbacks/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [OpenAPI Webhooks - FastAPI](https://fastapi.tiangolo.com/advanced/openapi-webhooks/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Path Operation Advanced Configuration - FastAPI](https://fastapi.tiangolo.com/advanced/path-operation-advanced-configuration/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Response Cookies - FastAPI](https://fastapi.tiangolo.com/advanced/response-cookies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Return a Response Directly - FastAPI](https://fastapi.tiangolo.com/advanced/response-directly/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Response - Change Status Code - FastAPI](https://fastapi.tiangolo.com/advanced/response-change-status-code/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Response Headers - FastAPI](https://fastapi.tiangolo.com/advanced/response-headers/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Settings and Environment Variables - FastAPI](https://fastapi.tiangolo.com/advanced/settings/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Stream Data - FastAPI](https://fastapi.tiangolo.com/advanced/stream-data/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Strict Content-Type Checking - FastAPI](https://fastapi.tiangolo.com/advanced/strict-content-type/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Sub Applications - Mounts - FastAPI](https://fastapi.tiangolo.com/advanced/sub-applications/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Templates - FastAPI](https://fastapi.tiangolo.com/advanced/templates/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Testing Dependencies with Overrides - FastAPI](https://fastapi.tiangolo.com/advanced/testing-dependencies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Testing Events: lifespan and startup - shutdown - FastAPI](https://fastapi.tiangolo.com/advanced/testing-events/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Testing WebSockets - FastAPI](https://fastapi.tiangolo.com/advanced/testing-websockets/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Using the Request Directly - FastAPI](https://fastapi.tiangolo.com/advanced/using-request-directly/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [WebSockets - FastAPI](https://fastapi.tiangolo.com/advanced/websockets/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Including WSGI - Flask, Django, others - FastAPI](https://fastapi.tiangolo.com/advanced/wsgi/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Advanced Security - FastAPI](https://fastapi.tiangolo.com/advanced/security/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [HTTP Basic Auth - FastAPI](https://fastapi.tiangolo.com/advanced/security/http-basic-auth/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [OAuth2 scopes - FastAPI](https://fastapi.tiangolo.com/advanced/security/oauth2-scopes/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Alternatives
+
+- [Alternatives, Inspiration and Comparisons - FastAPI](https://fastapi.tiangolo.com/alternatives/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Async
+
+- [Concurrency and async / await - FastAPI](https://fastapi.tiangolo.com/async/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Benchmarks
+
+- [Benchmarks - FastAPI](https://fastapi.tiangolo.com/benchmarks/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Contributing
+
+- [Contributing - FastAPI](https://fastapi.tiangolo.com/contributing/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Deployment
+
+- [Deployment - FastAPI](https://fastapi.tiangolo.com/deployment/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Deploy FastAPI on Cloud Providers - FastAPI](https://fastapi.tiangolo.com/deployment/cloud/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Deployments Concepts - FastAPI](https://fastapi.tiangolo.com/deployment/concepts/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [FastAPI in Containers - Docker - FastAPI](https://fastapi.tiangolo.com/deployment/docker/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [FastAPI Cloud - FastAPI](https://fastapi.tiangolo.com/deployment/fastapicloud/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [About HTTPS - FastAPI](https://fastapi.tiangolo.com/deployment/https/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Run a Server Manually - FastAPI](https://fastapi.tiangolo.com/deployment/manually/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Server Workers - Uvicorn with Workers - FastAPI](https://fastapi.tiangolo.com/deployment/server-workers/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [About FastAPI versions - FastAPI](https://fastapi.tiangolo.com/deployment/versions/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Editor support
+
+- [Editor Support - FastAPI](https://fastapi.tiangolo.com/editor-support/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Environment variables
+
+- [Environment Variables - FastAPI](https://fastapi.tiangolo.com/environment-variables/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## External links
+
+- [External Links - FastAPI](https://fastapi.tiangolo.com/external-links/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Fastapi cli
+
+- [FastAPI CLI - FastAPI](https://fastapi.tiangolo.com/fastapi-cli/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Fastapi people
+
+- [FastAPI People - FastAPI](https://fastapi.tiangolo.com/fastapi-people/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Features
+
+- [Features - FastAPI](https://fastapi.tiangolo.com/features/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Help fastapi
+
+- [Help - FastAPI](https://fastapi.tiangolo.com/help-fastapi/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## History design future
+
+- [History, Design and Future - FastAPI](https://fastapi.tiangolo.com/history-design-future/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## How to
+
+- [How To - Recipes - FastAPI](https://fastapi.tiangolo.com/how-to/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Use Old 403 Authentication Error Status Codes - FastAPI](https://fastapi.tiangolo.com/how-to/authentication-error-status-code/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Conditional OpenAPI - FastAPI](https://fastapi.tiangolo.com/how-to/conditional-openapi/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Configure Swagger UI - FastAPI](https://fastapi.tiangolo.com/how-to/configure-swagger-ui/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Custom Docs UI Static Assets (Self-Hosting) - FastAPI](https://fastapi.tiangolo.com/how-to/custom-docs-ui-assets/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Custom Request and APIRoute class - FastAPI](https://fastapi.tiangolo.com/how-to/custom-request-and-route/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Extending OpenAPI - FastAPI](https://fastapi.tiangolo.com/how-to/extending-openapi/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [General - How To - Recipes - FastAPI](https://fastapi.tiangolo.com/how-to/general/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [GraphQL - FastAPI](https://fastapi.tiangolo.com/how-to/graphql/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Migrate from Pydantic v1 to Pydantic v2 - FastAPI](https://fastapi.tiangolo.com/how-to/migrate-from-pydantic-v1-to-pydantic-v2/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Separate OpenAPI Schemas for Input and Output or Not - FastAPI](https://fastapi.tiangolo.com/how-to/separate-openapi-schemas/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Testing a Database - FastAPI](https://fastapi.tiangolo.com/how-to/testing-database/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Learn
+
+- [Learn - FastAPI](https://fastapi.tiangolo.com/learn/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Management
+
+- [Repository Management - FastAPI](https://fastapi.tiangolo.com/management/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Newsletter
+
+- [FastAPI and friends newsletter - FastAPI](https://fastapi.tiangolo.com/newsletter/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Project generation
+
+- [Full Stack FastAPI Template - FastAPI](https://fastapi.tiangolo.com/project-generation/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Python types
+
+- [Python Types Intro - FastAPI](https://fastapi.tiangolo.com/python-types/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Reference
+
+- [Reference - FastAPI](https://fastapi.tiangolo.com/reference/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [APIRouter class - FastAPI](https://fastapi.tiangolo.com/reference/apirouter/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Background Tasks - BackgroundTasks - FastAPI](https://fastapi.tiangolo.com/reference/background/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Dependencies - Depends() and Security() - FastAPI](https://fastapi.tiangolo.com/reference/dependencies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Encoders - jsonable_encoder - FastAPI](https://fastapi.tiangolo.com/reference/encoders/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Exceptions - HTTPException and WebSocketException - FastAPI](https://fastapi.tiangolo.com/reference/exceptions/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [FastAPI class - FastAPI](https://fastapi.tiangolo.com/reference/fastapi/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [HTTPConnection class - FastAPI](https://fastapi.tiangolo.com/reference/httpconnection/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Middleware - FastAPI](https://fastapi.tiangolo.com/reference/middleware/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Request Parameters - FastAPI](https://fastapi.tiangolo.com/reference/parameters/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Request class - FastAPI](https://fastapi.tiangolo.com/reference/request/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Response class - FastAPI](https://fastapi.tiangolo.com/reference/response/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Custom Response Classes - File, HTML, Redirect, Streaming, etc. - FastAPI](https://fastapi.tiangolo.com/reference/responses/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Static Files - StaticFiles - FastAPI](https://fastapi.tiangolo.com/reference/staticfiles/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Status Codes - FastAPI](https://fastapi.tiangolo.com/reference/status/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Templating - Jinja2Templates - FastAPI](https://fastapi.tiangolo.com/reference/templating/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Test Client - TestClient - FastAPI](https://fastapi.tiangolo.com/reference/testclient/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [UploadFile class - FastAPI](https://fastapi.tiangolo.com/reference/uploadfile/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [WebSockets - FastAPI](https://fastapi.tiangolo.com/reference/websockets/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [OpenAPI - FastAPI](https://fastapi.tiangolo.com/reference/openapi/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Security Tools - FastAPI](https://fastapi.tiangolo.com/reference/security/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [OpenAPI docs - FastAPI](https://fastapi.tiangolo.com/reference/openapi/docs/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [OpenAPI models - FastAPI](https://fastapi.tiangolo.com/reference/openapi/models/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Release notes
+
+- [Release Notes - FastAPI](https://fastapi.tiangolo.com/release-notes/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Resources
+
+- [Resources - FastAPI](https://fastapi.tiangolo.com/resources/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Translations
+
+- [Translations - FastAPI](https://fastapi.tiangolo.com/translations/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Tutorials
+
+- [Tutorial - User Guide - FastAPI](https://fastapi.tiangolo.com/tutorial/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Background Tasks - FastAPI](https://fastapi.tiangolo.com/tutorial/background-tasks/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Bigger Applications - Multiple Files - FastAPI](https://fastapi.tiangolo.com/tutorial/bigger-applications/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Body - Fields - FastAPI](https://fastapi.tiangolo.com/tutorial/body-fields/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Body - Multiple Parameters - FastAPI](https://fastapi.tiangolo.com/tutorial/body-multiple-params/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Body - Nested Models - FastAPI](https://fastapi.tiangolo.com/tutorial/body-nested-models/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Body - Updates - FastAPI](https://fastapi.tiangolo.com/tutorial/body-updates/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Request Body - FastAPI](https://fastapi.tiangolo.com/tutorial/body/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Cookie Parameter Models - FastAPI](https://fastapi.tiangolo.com/tutorial/cookie-param-models/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Cookie Parameters - FastAPI](https://fastapi.tiangolo.com/tutorial/cookie-params/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [CORS (Cross-Origin Resource Sharing) - FastAPI](https://fastapi.tiangolo.com/tutorial/cors/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Debugging - FastAPI](https://fastapi.tiangolo.com/tutorial/debugging/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [JSON Compatible Encoder - FastAPI](https://fastapi.tiangolo.com/tutorial/encoder/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Extra Data Types - FastAPI](https://fastapi.tiangolo.com/tutorial/extra-data-types/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Extra Models - FastAPI](https://fastapi.tiangolo.com/tutorial/extra-models/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [First Steps - FastAPI](https://fastapi.tiangolo.com/tutorial/first-steps/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Handling Errors - FastAPI](https://fastapi.tiangolo.com/tutorial/handling-errors/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Header Parameter Models - FastAPI](https://fastapi.tiangolo.com/tutorial/header-param-models/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Header Parameters - FastAPI](https://fastapi.tiangolo.com/tutorial/header-params/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Metadata and Docs URLs - FastAPI](https://fastapi.tiangolo.com/tutorial/metadata/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Middleware - FastAPI](https://fastapi.tiangolo.com/tutorial/middleware/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Path Operation Configuration - FastAPI](https://fastapi.tiangolo.com/tutorial/path-operation-configuration/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Path Parameters and Numeric Validations - FastAPI](https://fastapi.tiangolo.com/tutorial/path-params-numeric-validations/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Path Parameters - FastAPI](https://fastapi.tiangolo.com/tutorial/path-params/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Query Parameter Models - FastAPI](https://fastapi.tiangolo.com/tutorial/query-param-models/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Query Parameters and String Validations - FastAPI](https://fastapi.tiangolo.com/tutorial/query-params-str-validations/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Query Parameters - FastAPI](https://fastapi.tiangolo.com/tutorial/query-params/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Request Files - FastAPI](https://fastapi.tiangolo.com/tutorial/request-files/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Form Models - FastAPI](https://fastapi.tiangolo.com/tutorial/request-form-models/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Request Forms and Files - FastAPI](https://fastapi.tiangolo.com/tutorial/request-forms-and-files/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Form Data - FastAPI](https://fastapi.tiangolo.com/tutorial/request-forms/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Response Model - Return Type - FastAPI](https://fastapi.tiangolo.com/tutorial/response-model/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Response Status Code - FastAPI](https://fastapi.tiangolo.com/tutorial/response-status-code/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Declare Request Example Data - FastAPI](https://fastapi.tiangolo.com/tutorial/schema-extra-example/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Server-Sent Events (SSE) - FastAPI](https://fastapi.tiangolo.com/tutorial/server-sent-events/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [SQL (Relational) Databases - FastAPI](https://fastapi.tiangolo.com/tutorial/sql-databases/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Static Files - FastAPI](https://fastapi.tiangolo.com/tutorial/static-files/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Stream JSON Lines - FastAPI](https://fastapi.tiangolo.com/tutorial/stream-json-lines/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Testing - FastAPI](https://fastapi.tiangolo.com/tutorial/testing/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Dependencies - FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Security - FastAPI](https://fastapi.tiangolo.com/tutorial/security/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Classes as Dependencies - FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/classes-as-dependencies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Dependencies in path operation decorators - FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-in-path-operation-decorators/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Dependencies with yield - FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Global Dependencies - FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/global-dependencies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Sub-dependencies - FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Security - First Steps - FastAPI](https://fastapi.tiangolo.com/tutorial/security/first-steps/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Get Current User - FastAPI](https://fastapi.tiangolo.com/tutorial/security/get-current-user/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [OAuth2 with Password (and hashing), Bearer with JWT tokens - FastAPI](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+- [Simple OAuth2 with Password and Bearer - FastAPI](https://fastapi.tiangolo.com/tutorial/security/simple-oauth2/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
+
+## Virtual environments
+
+- [Virtual Environments - FastAPI](https://fastapi.tiangolo.com/virtual-environments/): FastAPI framework, high performance, easy to learn, fast to code, ready for production
