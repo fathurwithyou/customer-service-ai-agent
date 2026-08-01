@@ -1,7 +1,5 @@
-"""One turn, start to finish.
-
-Resolving identity and classifying the message happen here, before the agent runs, because
-both are deterministic and belong in code the model cannot influence.
+"""One turn, start to finish. Identity and escalation signals are resolved before the agent
+runs -- both are deterministic and belong outside the model's reach.
 """
 
 from __future__ import annotations
@@ -28,8 +26,7 @@ FALLBACK = AgentReply(
 
 
 async def resolve_customer(db: Database, hint: str | None) -> Customer | None:
-    """An order-id hint verifies nothing: honouring one would make a shipping label a
-    credential."""
+    """An order id verifies nothing -- it is printed on the parcel."""
     if not hint:
         return None
     if hint.isdigit() and "@" not in hint and not hint.startswith("0"):

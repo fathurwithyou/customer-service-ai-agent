@@ -1,12 +1,7 @@
-"""Tracing into Logfire and Phoenix from one tracer provider: `OpenInferenceSpanProcessor`
-enriches spans in place and exports nothing itself (docs/STACK_NOTES.md section 9), so
-registration order is the contract -- enrich, repair, export.
+"""One provider feeds Logfire and Phoenix. Order is enrich, repair, export.
 
-PII: redaction here is load-bearing, not belt-and-braces. Logfire's scrubber is *intentionally
-disabled for LLM message attributes*, and OpenInference's own masking (`TraceConfig`,
-`OPENINFERENCE_HIDE_*`) only applies to OITracer-based instrumentors -- the pydantic-ai
-integration is a post-hoc span translator and never reads it. So nothing masks these spans
-except us: `customer_id` is recorded, never the contact used to look someone up.
+Nothing else masks these spans -- Logfire's scrubber skips LLM attributes, OpenInference's
+masking needs an OITracer -- so we record customer_id, never the contact.
 """
 
 from __future__ import annotations
@@ -32,10 +27,8 @@ _configured = False
 
 
 class ToolCallInput(SpanProcessor):
-    """Phoenix parses `tool.parameters` into an object on ingest and then crashes rendering it,
-    and rebuilds it from `gen_ai.tool.call.arguments`, so both must go. The same JSON belongs in
-    `input.value`, or a tool span arrives with an output and no input at all.
-    """
+    """Phoenix crashes rendering `tool.parameters` and rebuilds it from the gen_ai key, so both
+    must go; the JSON belongs in `input.value`."""
 
     _ARGUMENT_KEYS = ("tool.parameters", "gen_ai.tool.call.arguments")
 
@@ -58,14 +51,10 @@ def describe_turn(
     signals: list[str],
     model: str,
 ) -> None:
-    """Make the turn span the readable root of its trace.
+    """Without span.kind Phoenix files the trace as UNKNOWN and previews an opaque HTTP row.
 
-    Without `openinference.span.kind` Phoenix files it as UNKNOWN and previews the trace as an
-    opaque HTTP row; with input/output values it previews the actual conversation.
-
-    Written to the OTel span rather than the logfire wrapper: the wrapper JSON-encodes anything
-    that is not a scalar, which would turn `tag.tags` into one opaque string instead of the
-    list of chips Phoenix filters on.
+    Set on the OTel span, not the logfire wrapper: the wrapper JSON-encodes non-scalars, which
+    would flatten tag.tags into one string.
     """
     span = otel_trace.get_current_span()
     span.set_attribute(
@@ -96,9 +85,7 @@ def describe_turn(
 def record_answer(
     reply_text: str, *, escalated: bool, ticket_id: int | None, usage: RunUsage | None = None
 ) -> None:
-    """Token counts use the OpenInference names rather than anything of our own: those are what
-    Phoenix aggregates, prices, and lets you filter and sort a project by.
-    """
+    # OpenInference names, not ours: those are what Phoenix aggregates and prices.
     span = otel_trace.get_current_span()
     span.set_attribute(SpanAttributes.OUTPUT_VALUE, reply_text)
     span.set_attribute(SpanAttributes.OUTPUT_MIME_TYPE, "text/plain")
@@ -122,17 +109,14 @@ def span_processors(settings: Settings) -> list[SpanProcessor]:
 
 
 def keep_session_id(match: logfire.ScrubMatch) -> str | None:
-    """`session.id` matches the "session" scrub pattern but is our own chat id, not a
-    credential -- and the only thing grouping a multi-turn conversation."""
+    """Our chat id, not a credential -- and the only thing grouping a conversation."""
     if match.path == ("attributes", "session.id"):
         return match.value
     return None
 
 
 def setup_observability(settings: Settings, app: FastAPI) -> None:
-    """Configure the exporter once per process, instrument every app: the test suite builds many
-    apps in one process, and only the FastAPI part may repeat.
-    """
+    """Exporter once per process; the FastAPI part repeats because tests build many apps."""
     global _configured
     if not _configured:
         logfire.configure(
@@ -140,26 +124,20 @@ def setup_observability(settings: Settings, app: FastAPI) -> None:
             send_to_logfire="if-token-present",
             service_name=PROJECT_NAME,
             environment=settings.logfire_environment,
-            # Warnings and errors still reach the terminal; without this a failed turn is
-            # invisible to whoever is running the server, since the traceback goes only to
-            # the span.
+            # Without this a failed turn is invisible in the terminal: the traceback goes
+            # only to the span.
             console=logfire.ConsoleOptions(min_log_level="warn", verbose=False),
-            # Phoenix files spans by this *resource* attribute, normally set by phoenix.otel
-            # .register(). We use Logfire's provider, so without this every trace lands in
-            # Phoenix's "default" project.
+            # Phoenix files spans by this resource attribute, normally set by its own
+            # register(); without it every trace lands in the "default" project.
             resource_attributes={ResourceAttributes.PROJECT_NAME: PROJECT_NAME},
             scrubbing=logfire.ScrubbingOptions(callback=keep_session_id),
             additional_span_processors=span_processors(settings),
         )
         logfire.instrument_pydantic_ai(version=5)
-        # httpx makes the Groq SDK's own 429 retries visible -- exactly what was invisible
-        # while a rate limit was being misread as a connection error. (instrument_sqlite3 was
-        # tried and dropped: it emits nothing for aiosqlite, which runs sqlite3 on a worker
-        # thread, and nothing for plain sqlite3 here either.)
+        # Makes the SDK's 429 retries visible. instrument_sqlite3 was dropped: it emits
+        # nothing for aiosqlite, which runs on a worker thread.
         logfire.instrument_httpx(capture_headers=False)
-        # "failure", not "all": a successful validation says nothing, and at one span each they
-        # bury the model and tool spans that carry the actual story. Failures still surface --
-        # that is the signal worth a span.
+        # "failure", not "all": successful validations say nothing and bury the real spans.
         logfire.instrument_pydantic(record="failure")
         _configured = True
     logfire.instrument_fastapi(app, excluded_urls="/health")

@@ -1,6 +1,5 @@
-"""A policy refusal is a result, not an exception: the model has to narrate it to the customer,
-and the tests have to assert on it. `success` is derived rather than stored -- two fields for
-one fact can disagree.
+"""A policy refusal is a result, not an exception. `success` is derived: two fields for one
+fact can disagree.
 """
 
 from __future__ import annotations

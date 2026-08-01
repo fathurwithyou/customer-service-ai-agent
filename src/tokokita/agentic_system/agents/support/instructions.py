@@ -1,10 +1,8 @@
 """Only what nothing else can carry.
 
-"Answer from tool results" is absent on purpose: tools are the model's sole source of data, so
-instructing it to use them buys nothing. So is the identity rule (the gate makes it structural),
-the per-tool procedure (tool docstrings), and the output contract (AgentReply field
-descriptions) -- prose duplicating an enforced rule only drifts. What is left: the register, the
-one behaviour code cannot prevent (promising things), and the judgment keyword detection misses.
+Absent on purpose: "answer from tool results" (tools are the sole source), the identity rule
+(the gate makes it structural), per-tool procedure (tool docstrings). Prose duplicating an
+enforced rule only drifts. What is left: register, the promise ban, and judgment.
 """
 
 from __future__ import annotations
@@ -28,15 +26,10 @@ eskalasikan. Sebagian kasus sudah ditandai wajib eskalasi untukmu; selebihnya pe
 
 
 def customer_context(ctx: RunContext[SupportDeps]) -> str:
-    """Who the caller is, injected by whatever channel they arrived through.
-
-    Stated as given context, not as something to establish: told to "call get_customer first"
-    the model demands an email the request already carried, and never reaches the data tools.
-    """
+    """Given context, not something to establish: told to "call get_customer first" the model
+    demands an email the request already carried and never reaches the data tools."""
     if ctx.deps.customer is None:
-        # Asking for a contact and looking one up are two different turns. Phrased as one
-        # ("minta email lalu panggil get_customer") the model tries both at once, calls
-        # get_customer with nothing, and loses its retry budget before it can answer.
+        # Two turns, not one: phrased together the model calls get_customer with nothing.
         return (
             "PELANGGAN: belum dikenali, jadi tool untuk data miliknya sendiri belum tersedia.\n"
             "- Kalau pesannya MEMUAT email atau nomor telepon: panggil get_customer dengan "

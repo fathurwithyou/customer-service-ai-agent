@@ -1,20 +1,13 @@
 """Withhold, refuse, and own the moment a session becomes verified.
 
-A capability sees only its own tools; this sees every call, including tools that do not exist
-yet. That is the difference between an authorisation rule and an `if` someone can forget to
-paste. The access map is composed from what each capability declares, so no single table has
-to know about every domain.
+This sees every tool call, including tools that do not exist yet -- an `if` per tool is
+useless in the one place someone forgets it.
 
-  prepare_tools      tools needing a customer are absent from the list the model is shown, so
-                     no tokens go on a refusal it would then have to explain.
-  wrap_tool_execute  the control. Redundant with the above by design: replayed history, a
-                     deferred call, or a future capability re-adding a tool all pass here.
-  after_tool_execute the privilege transition. The lookup tool stays a plain domain read; a
-                     tool that granted itself access would put a security decision in the
-                     capability layer.
+  prepare_tools      hides the tool, so no tokens go on a refusal
+  wrap_tool_execute  the control; redundant by design (replayed history still passes here)
+  after_tool_execute the privilege transition, kept out of the domain tool
 
-An undeclared tool is treated as needing a customer, so forgetting to classify one makes it
-unavailable rather than accidentally public.
+An undeclared tool needs a customer, so forgetting to classify one fails closed.
 """
 
 from __future__ import annotations

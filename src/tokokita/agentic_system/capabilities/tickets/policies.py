@@ -1,8 +1,7 @@
 """When a turn stops being the agent's to resolve.
 
-Detection is substring matching over a lowered message: crude on purpose. A regex that tries to
-be clever about negation gets the easy cases wrong in two languages, and over-escalating costs a
-human agent two minutes while a missed fraud report costs a customer their money.
+Substring matching, crude on purpose: over-escalating costs a human two minutes, a missed
+fraud report costs a customer their money.
 """
 
 from __future__ import annotations

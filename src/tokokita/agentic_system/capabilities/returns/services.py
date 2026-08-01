@@ -1,8 +1,5 @@
-"""Return business logic.
-
-The load-bearing decision: the refund amount is derived from `order_items`, never accepted as
-an argument. Had it been a parameter, the model could have named a figure under the ceiling and
-walked past the guard -- the check would be reading a number chosen by the guarded party.
+"""The refund amount is derived from `order_items`, never accepted as an argument -- otherwise
+the ceiling would be checking a number the guarded party chose.
 """
 
 from __future__ import annotations

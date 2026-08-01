@@ -1,7 +1,5 @@
-"""What a turn carries.
-
-Services are constructed here rather than reached for globally, so a test can build a turn
-against a fake database without patching anything.
+"""What a turn carries. Services are built here rather than reached for globally, so a test can
+construct a turn against a fake database without patching.
 """
 
 from __future__ import annotations

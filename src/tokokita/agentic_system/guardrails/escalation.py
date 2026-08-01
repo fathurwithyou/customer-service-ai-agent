@@ -1,8 +1,5 @@
-"""Hold the turn to the escalation rule.
-
-The reply no longer claims to have escalated -- that is read from the transcript -- so the only
-thing left to enforce is that a turn which must reach a human actually did. A fraud report
-answered by a chatbot is the failure this prevents.
+"""The reply no longer claims to have escalated -- that is read from the transcript -- so all
+that is left to enforce is that a turn which must reach a human did.
 """
 
 from __future__ import annotations

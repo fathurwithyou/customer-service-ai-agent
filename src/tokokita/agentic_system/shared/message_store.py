@@ -1,12 +1,8 @@
-"""Conversation persistence, in the framework's own wire format.
+"""Transcript persistence in the framework's own format, so a new part type needs no migration.
 
-Only the transcript is stored. Who the customer is arrives as injected context on every
-request, so keeping a server-side copy would be a second source of truth that can drift from
-the one the caller actually sent.
-
-`ModelMessagesTypeAdapter` is how Pydantic AI serialises a transcript, so a new part type does
-not force a migration. System prompts are stripped: instructions are re-injected on every run,
-so storing them only grows the row and risks replaying a stale prompt.
+Identity is not stored: it arrives as injected context each request, and a server-side copy
+would be a second source of truth. System prompts are stripped -- instructions are re-injected
+every run.
 """
 
 from __future__ import annotations

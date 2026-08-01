@@ -1,14 +1,10 @@
 """Stream a turn as server-sent events.
 
-Everything is driven from one event handler into a queue, because `event_stream_handler` is a
-callback and cannot yield into the response. That also gives tool activity and text the same
-ordering the run had.
+One handler feeds a queue because `event_stream_handler` is a callback and cannot yield into
+the response; that also preserves the run's ordering of tool activity and text.
 
-Text deltas are coalesced to whole words: fewer events, and the client animates a word at a
-time rather than a character, which is what makes streamed text read instead of flicker.
-
-The outcome fields cannot be streamed -- they are read from the transcript once the run
-finishes -- so they arrive in a final `done` event.
+Deltas are coalesced to words so the client animates a word at a time, not a character. The
+outcome is only known after the run, so it arrives in a final `done` event.
 """
 
 from __future__ import annotations

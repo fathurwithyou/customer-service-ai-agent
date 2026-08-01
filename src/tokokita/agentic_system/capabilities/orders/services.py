@@ -53,8 +53,8 @@ class OrderService:
             return None
         decision = policies.can_change_address(OrderStatus(row["status"]))
         if not decision.allowed:
-            # Name the courier for THIS order, or the model will name one it remembers from an
-            # earlier turn -- the exact way a wrong tracking number reaches a customer.
+            # Name this order's courier, or the model quotes one it remembers from an
+            # earlier turn.
             shipment = await self._db.shipment_row(order_id, customer_id)
             detail = decision.detail
             if shipment and shipment["tracking_number"]:

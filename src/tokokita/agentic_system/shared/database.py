@@ -1,11 +1,10 @@
 """SQLite access, scoped by customer.
 
-Every query over customer data takes a `customer_id` and filters on it, so there is no
-unscoped read for a service to call by mistake. The two exceptions are deliberate:
-`customer_row` establishes a scope, and the catalog is public.
+Every query over customer data takes a `customer_id` and filters on it, so no unscoped read
+exists to call by mistake. Two deliberate exceptions: `customer_row` establishes a scope, and
+the catalog is public.
 
-Rows are plain dicts; mapping them to domain models is each capability's service. A miss
-returns None for both "no such row" and "not yours" -- telling those apart would confirm
+A miss returns None for both "no such row" and "not yours" -- telling them apart would confirm
 which order ids exist.
 """
 
