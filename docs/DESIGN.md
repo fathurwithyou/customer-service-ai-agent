@@ -45,11 +45,12 @@ Each layer is replaceable without touching its neighbours. Dependencies point st
 
 | Layer | Module | Owns | Knows nothing about |
 |---|---|---|---|
-| Transport | `api/app.py` | HTTP, DI, status codes, the chat UI | agents, SQL |
-| Turn lifecycle | `agents/support/runner.py` | intake, the run, persistence, the fallback reply | SQL, HTTP |
-| Agent brain | `agents/support/` — `agent.py`, `instructions.py`, `output.py`, `deps.py` | model, instructions, run loop, output contract | SQL, HTTP |
+| Web | `frontend/` (React + Vite, built into `api/static/`) | rendering, SSE consumption | SQL, the agent's internals |
+| Transport | `api/app.py` | HTTP, DI, status codes, SSE framing, serving the SPA | agents, SQL |
+| Turn lifecycle | `agents/support/` — `runner.py`, `streaming.py`, `output.py` | intake, the run, the assembled turn result, persistence, the fallback reply | SQL, HTTP |
+| Agent brain | `agents/support/` — `agent.py`, `instructions.py`, `deps.py` | model, instructions, run loop, capability wiring | SQL, HTTP |
 | Enforcement | `guardrails/` | cross-cutting access and escalation rules | any one capability |
-| Capabilities | `capabilities/*/capability.py`, `tools.py` | what the agent *can do*, and at which access level | HTTP, SQL |
+| Capabilities | `capabilities/*/capability.py`, `tools.py` | what the agent *can do*, whether it needs a verified customer, and what the customer is told while it runs | HTTP, SQL |
 | Services | `capabilities/*/services.py` | queries and business logic | the model, HTTP |
 | Domain | `capabilities/*/policies.py`, `schemas.py` | business rules, vocabulary | I/O of any kind |
 | Data | `shared/database.py`, `data/schema.sql`, `data/seed.sql` | persistence, ownership scoping | the agent |
@@ -65,6 +66,18 @@ owns a *cross-cutting rule* (a verb applied to everything: authorise, escalate).
 know about every capability, it is not a capability. That is why the identity gate (§4) and the
 escalation validator (§5.3) live in `guardrails/`, and why each capability declares its own tools'
 access level instead of one global table knowing about all of them.
+
+The five folders are `customers`, `catalog`, `orders`, `returns`, `tickets`. `customers` was
+called `identity` — the one abstract name in a list of concrete ones, and a name that described a
+*concern* the guardrail layer actually owns rather than the table the folder reads. The folder
+looks customers up; `guardrails/identity_gate.py` is what decides what identity means. Names that
+sort into the same list should be the same kind of word. `IdentityService` became `CustomerLookup`
+for the same reason — it has one method and it finds a customer.
+
+Ruff enforces `PLC0415` (no imports inside functions), which is a structural rule rather than a
+style one: an import buried in a function body is a dependency that does not appear in the file's
+header, and the claim that "dependencies point strictly downward" is only checkable if every
+dependency is declared where it can be read.
 
 **Tools are thin adapters.** A tool converts the model's arguments into a service call and the
 service's answer into something the model can narrate. SQL and business logic live in
@@ -105,8 +118,9 @@ anyway — distinguishing them is an enumeration oracle that confirms which orde
 **The two deliberate exceptions**, listed because an unaudited exception is how invariants rot:
 
 - `customer_row(email | phone)` — unscoped by necessity: it is the primitive that
-  *establishes* the scope. It is the sole entry point to identity and is reachable only through
-  the `IDENTIFYING` access level in §4.
+  *establishes* the scope. It is the sole entry point to identity, and the tool above it is
+  classified `OPEN` for the same reason: a caller cannot be required to be verified in order to
+  become verified (§4).
 - `product_row(product_id | name)` — the catalog is public. Stock and price are not
   anyone's private data, and requiring verification to ask a product's price would be
   security theatre that damages the product.
@@ -119,31 +133,55 @@ anyway — distinguishing them is an enumeration oracle that confirms which orde
 
 ```python
 class AccessLevel(StrEnum):
-    PUBLIC = "public"              # catalog -- no identity needed
-    IDENTIFYING = "identifying"    # establishes identity; cannot presuppose it
-    CUSTOMER_SCOPED = "scoped"     # requires a verified customer
+    OPEN = "open"
+    VERIFIED_CUSTOMER = "verified_customer"
 ```
 
+**Two members, not three.** An earlier version had a third, `IDENTIFYING`, for `get_customer` —
+the tool that establishes identity and therefore cannot presuppose it. But the gate only ever
+asks one question: *does this tool need a verified customer?* `IDENTIFYING` and the open level
+answered that question identically and differed only in *why*, so the third member named a
+justification, not a behaviour — and a distinction the code never branches on is a distinction
+that will eventually be read as one it does. Why `get_customer` is open is a fact about the
+domain (§3), not a level in an enum.
+
 Each capability classifies **its own** tools, in its `capability.py`, next to the tools it is
-classifying:
+classifying, and beside each tool's customer-facing activity phrase:
 
 ```python
 # capabilities/orders/capability.py
-ACCESS = {tool.__name__: AccessLevel.CUSTOMER_SCOPED for tool in TOOLS}
+ACCESS = {tool.__name__: AccessLevel.VERIFIED_CUSTOMER for tool in TOOLS}
+ACTIVITY = {"track_shipment": "Melacak posisi paket", ...}
 ```
 
-`agents/support/agent.py` merges the five maps into `TOOL_ACCESS` and hands the result to
-`IdentityGate(AbstractCapability[SupportDeps])` in `guardrails/identity_gate.py`, which enforces
-at two depths:
+`ACTIVITY` is what the customer is shown while that tool runs (§11). It sits here because the
+capability is the only place that knows both that the tool exists and what it does in the
+customer's words — a central table would drift from the tools it describes, and the tool's own
+name ("track_shipment") is not a sentence anyone should be shown.
 
-1. **`prepare_tools`** — scoped tools are removed from the tool list before the model sees them.
-   The model cannot choose a tool that is not on the menu. This is the same idiom as
-   `ReadOnlyShell.prepare_tools` in `crayon-rm-library`: *structurally absent* beats *instructed
-   not to*.
-2. **`wrap_tool_execute`** — a scoped call with no verified customer is refused before the
-   function body runs. Redundant with (1) by design: (1) is ergonomics and token economy, (2) is
+`agents/support/agent.py` merges the five maps into `TOOL_ACCESS` and hands the result to
+`IdentityGate(AbstractCapability[SupportDeps])` in `guardrails/identity_gate.py`, which owns
+three hooks:
+
+1. **`prepare_tools`** — tools needing a customer are removed from the tool list before the model
+   sees them. The model cannot choose a tool that is not on the menu, and no tokens go on a
+   refusal it would then have to explain. Same idiom as `ReadOnlyShell.prepare_tools` in
+   `crayon-rm-library`: *structurally absent* beats *instructed not to*.
+2. **`wrap_tool_execute`** — a call needing a customer is refused before the function body runs
+   when there is none. Redundant with (1) by design: (1) is ergonomics and token economy, (2) is
    the control. History replay, a deferred call, or a future capability re-adding a tool all
    route through (2).
+3. **`after_tool_execute`** — the privilege transition. When the configured lookup tool
+   (`verifies_with`, default `get_customer`) returns a `Customer`, the gate promotes the session
+   by setting `ctx.deps.customer`.
+
+**Why the transition moved into the gate.** `get_customer` used to set `ctx.deps.customer`
+itself. That put a security decision — *this session is now verified* — inside the capability
+layer, in a tool whose job is a database read. Two things follow from moving it: the lookup tool
+goes back to being a plain domain read that a test can call without granting anything, and the
+only way a *tool result* can raise a session's privilege is one line in the module whose stated
+subject is authorisation. Which tool is trusted to verify is now `verifies_with` on the gate,
+rather than a fact scattered in a capability.
 
 **Why per-capability declarations and not one global table.** A single table would have to name
 every tool in every domain — exactly the thing §2's scoping rule says is not a capability's
@@ -151,10 +189,11 @@ business, and one more file to remember when adding a domain. Declaring `ACCESS`
 keeps a capability self-contained: a new one is a folder, and the gate learns about it by being
 handed the merged map.
 
-**Unknown tool ⇒ deny.** A tool absent from `TOOL_ACCESS` is treated as `CUSTOMER_SCOPED`. Adding
-a tool and forgetting to classify it makes it unavailable, never accidentally public — the
-failure mode points at safety. A test asserts every registered tool has an explicit entry, so the
-omission is caught at development time rather than silently degrading the tool surface.
+**Unknown tool ⇒ deny.** `needs_customer(name)` returns `True` for any tool absent from
+`TOOL_ACCESS`. Adding a tool and forgetting to classify it makes it unavailable, never
+accidentally public — the failure mode points at safety. A test asserts every registered tool has
+an explicit entry, so the omission is caught at development time rather than silently degrading
+the tool surface.
 
 **Why a capability rather than a decorator on each tool.** A decorator is still per-tool: it must
 be applied, and it can be omitted. A capability is registered once on the agent and observes
@@ -164,9 +203,10 @@ every action?* Identity belongs to every action. (It is an `AbstractCapability` 
 sense — that is the only mechanism with the reach — but in this codebase's vocabulary it is a
 guardrail, because it has to know about every capability.)
 
-**Why `prepare_tools` + `wrap_tool_execute` and not `before_tool_execute`.** `wrap_` can decline
-to call the handler at all and substitute a result. `before_` can only transform arguments; it
-cannot stop the call.
+**Why `wrap_tool_execute` and not `before_tool_execute` for the refusal.** `wrap_` can decline to
+call the handler at all and substitute a result. `before_` can only transform arguments; it
+cannot stop the call. The promotion is the mirror case and uses `after_`, because it is a
+function of the tool's *return value*.
 
 **Honest limitation — this is identification, not authentication.** The schema has no password,
 no OTP, no session token. Presenting an email address proves knowledge of an email address.
@@ -175,9 +215,10 @@ Accordingly:
 - email or phone **verifies** (matches exactly one customer row),
 - `order_id` **narrows context but does not verify** — an order number is printed on a package
   and is not a secret, and treating it as a credential would make a shipping label a password,
-- verification is granted in exactly one place (`capabilities/identity/tools.py::get_customer`
-  sets `deps.customer`), so swapping in a real OTP or session-token check touches that function
-  and `runner.resolve_customer` — no other tool changes.
+- a session becomes verified in exactly two places, neither of them a tool:
+  `runner.resolve_customer` seeds `SupportDeps.customer` from a contact the channel already
+  carried, and `IdentityGate.after_tool_execute` promotes mid-run when the lookup tool returns
+  one. Swapping in a real OTP or session-token check touches those two and nothing else.
 
 Documenting this beats pretending the demo is an auth system.
 
@@ -228,30 +269,50 @@ Indonesian and English terms — crude, and deliberately biased toward false pos
 cost of a needless escalation is a slightly annoyed human agent and the cost of a miss is a fraud
 report answered by a chatbot.
 
-### 5.3 The output validator: reconcile the claim against the evidence
+### 5.3 The turn result is read, not claimed — and the validator enforces what is left
 
-`AgentReply.escalated` is a claim the model makes about itself. `ctx.messages` is the record of
-what it actually did. `guardrails/escalation.py` compares them, and `agent.py` registers it with
-`agent.output_validator(escalation_is_honoured)` — the function is a plain function so that the
-rule is testable, and importable, without an agent:
+The agent's `output_type` is **plain `str`**. There is no output tool, and the model is asked for
+one thing: the sentence the customer reads.
+
+`AgentReply` still exists, but it is now the *turn result assembled by the runner*, not the
+model's output. `message` comes from the model. `escalated` and `ticket_id` are read from the
+transcript by `shared/transcript.py::outcome` — the first from whether `escalate_ticket` was
+called, the second from what `create_ticket` returned. `customer_name` is read from
+`deps.customer` *after* the run, not from the value the turn opened with, because the gate may
+have promoted the session mid-run. `action_taken` was deleted: nothing consumed it, and a field
+only the model writes and only a log reads is a place for a claim to go unchecked.
+
+**Why this and not a structured output tool.** Two reasons, one measured and one structural.
+
+Measured: on the case that fails hardest — the customer is unverified and the correct behaviour
+is to *ask* for a contact rather than call anything — the `AgentReply` output tool succeeded
+2 runs in 4, plain `str` 4 in 4. With no output tool, the entire class of "model failed to
+produce `final_result`" errors cannot occur: a model that decides no tool is needed and simply
+writes text is now producing the output, not failing to.
+
+Structural: asking the model to report `escalated` was asking it to restate a fact the runtime
+already held, and a restatement can disagree with the fact. The **second branch of the escalation
+guardrail is gone** as a consequence — "claimed an escalation that never happened" is no longer a
+condition that can be checked, because it is no longer a condition that can arise. That is the
+better outcome by the standard of §1: a rule that was *verified* became a rule that is
+*impossible to break*.
+
+What is left for `guardrails/escalation.py` is the direction the transcript cannot settle by
+itself — a turn that *must* reach a human and didn't. `agent.py` registers it with
+`agent.output_validator(escalation_is_honoured)`; it is a plain function so the rule is testable,
+and importable, without an agent:
 
 ```python
-async def escalation_is_honoured(ctx: RunContext[SupportDeps], reply: AgentReply) -> AgentReply:
+async def escalation_is_honoured(ctx: RunContext[SupportDeps], reply: str) -> str:
     called = {
         part.tool_name
         for message in ctx.messages if isinstance(message, ModelResponse)
         for part in message.parts if isinstance(part, ToolCallPart)
     }
     if ctx.deps.escalation_required and "escalate_ticket" not in called:
-        raise ModelRetry("Kasus ini wajib dieskalasi. Panggil escalate_ticket lebih dulu.")
-    if reply.escalated and "escalate_ticket" not in called:
-        raise ModelRetry("Jangan menyatakan sudah dieskalasi kalau escalate_ticket belum dipanggil.")
+        raise ModelRetry("Kasus ini wajib dieskalasi ke manusia. Panggil create_ticket bila ...")
     return reply
 ```
-
-Both directions matter. The first stops a required escalation being skipped. The second stops the
-agent *reporting* an escalation it never performed — a failure that is worse than not escalating,
-because it closes the loop with a human who believes a ticket is waiting for them.
 
 `ModelRetry` sends the model back with the correction rather than failing the request, so the
 common case is that the second attempt complies and the customer never sees an error.
@@ -260,7 +321,8 @@ A second validator checking that any tracking number in the reply appears verbat
 result was designed and then **cut** to keep the demo small. It remains the obvious next
 addition: a fabricated tracking number is a specific, high-cost hallucination, and it is the one
 grounding rule that is cheaply checkable without an LLM judge. For now that risk is carried by
-the instructions and by `track_shipment` being the only source of the number.
+the instructions, by `track_shipment` being the only source of the number, and by refusals
+carrying their own evidence (§6).
 
 ### 5.4 Why output validators rather than Harness guardrails
 
@@ -270,8 +332,8 @@ the instructions and by `track_shipment` being the only source of the number.
 
 They were **never used, and the dependency has been removed** — the package appears nowhere in
 `pyproject.toml`. Nothing is lost in guarantees: `agent.output_validator` is core Pydantic AI,
-receives the typed `AgentReply` unchanged, has access to `ctx.messages` and `ctx.deps`, and
-drives the same retry loop. What the Harness would have added is reusability *across agents* and
+receives the output unchanged, has access to `ctx.messages` and `ctx.deps`, and drives the same
+retry loop. What the Harness would have added is reusability *across agents* and
 a declarative registration site — worth having with a second agent, unjustified with one. The
 seam is small: `escalation_is_honoured` is a plain function registered in one line, so wrapping
 it in `OutputGuardrail(guard=...)` later is a one-line change. Dropping the package also removes
@@ -302,9 +364,21 @@ not be raised.
 
 `update_shipping_address` is the canonical case. `orders/policies.py::can_change_address(status)`
 returns a `Decision`; `shipped` and `delivered` are refused with
-`ResultCode.ORDER_ALREADY_SHIPPED`, and `Decision.as_result()` turns it into the `ActionResult`
-the tool hands back. The rule is a pure function over a status, so the test asserts it directly
-and needs no agent, model, or database.
+`ResultCode.ORDER_ALREADY_SHIPPED`, `cancelled` with `ResultCode.ORDER_CANCELLED`, and
+`Decision.as_result()` turns it into the `ActionResult` the tool hands back. The rule is a pure
+function over a status, so the test asserts it directly and needs no agent, model, or database.
+
+**A refusal must carry its own evidence.** The refusal used to read "the parcel is already with
+the courier, contact them" while supplying no courier and no tracking number. Observed in a real
+conversation: the model filled the gap from earlier context and quoted the customer a **different
+order's** tracking number. Nothing lied — the tool returned a true refusal and the model returned
+a true fact about the wrong order. `OrderService.change_address` now looks up *that order's*
+shipment and appends its courier and resi to the detail.
+
+This is the grounding failure mode in miniature, and it generalises: an instruction that implies
+a fact the tool result does not contain is an invitation to hallucinate, and the fix belongs in
+the result rather than in a warning added to the prompt. A gap the model can see is a gap the
+model will fill.
 
 ---
 
@@ -318,6 +392,7 @@ and needs no agent, model, or database.
 | **Harness guardrails** | Purpose-built for exactly this. | Researched, never used, dependency removed; `agent.output_validator` provides the same enforcement. See §5.4. |
 | **SQLAlchemy** | Postgres portability, pooling. | The whole persistence seam is ~10 queries. The ORM layer would duplicate models that already exist as Pydantic models, and pooling is meaningless against local SQLite. `aiosqlite` + a repository *is* the swappable seam; the SQL is standard enough that Postgres is a driver change plus the dialect notes in the brief's appendix. |
 | **A `verified: bool` flag on `SupportDeps`, checked in tools** | Simplest thing that could work. | This is failure (a) verbatim. The flag is fine — `SupportDeps.customer` carries it — but the *checking* must not be per-tool. |
+| **A structured `output_type` for the whole reply** | One typed object, validated by the framework, is the Pydantic AI house style. | An output tool is one more thing the model can fail to call, and every field but `message` was the model restating what the runtime already knew. Measured worse on the hardest case; see §5.3. Structure that is *derived* costs the model nothing and cannot disagree with the run. |
 | **LLM-judge grounding on every reply** | Would catch all hallucination, not just tracking numbers. | A second model call per turn, non-deterministic, and unaffordable in the request path. Belongs in an offline eval suite (as in `crayon-rm-library/evals/`), not in `/chat`. Noted as future work. |
 
 ### Tried, then reverted
@@ -326,9 +401,15 @@ These were built and removed. Recorded so they are not rediscovered as good idea
 
 | Reverted | Why it failed |
 |---|---|
-| **`PromptedOutput`**, behind an `output_mode` setting | Injecting the schema into the instructions made `gpt-oss` invent a tool named `json` / `agent_reply` and call *that* instead of answering. The default `ToolOutput` is correct here once `parallel_tool_calls=False` and `groq_reasoning_format="hidden"` are set on `GroqModelSettings`. |
+| **`PromptedOutput`**, behind an `output_mode` setting | Injecting the schema into the instructions made `gpt-oss` invent a tool named `json` / `agent_reply` and call *that* instead of answering. Superseded anyway: there is no structured output left to prompt for (§5.3). |
+| **The `AgentReply` output tool** | On the turn where the model must ask for a contact instead of answering, it produced no `final_result` half the time (2/4 vs 4/4 for plain `str`). The reply is now `str` and the structure is assembled from the transcript. |
+| **`AgentReply.action_taken`** | A free-text field the model wrote and nothing read. Unread output is unverified output; deleting it removed a claim rather than adding a check. |
+| **`AccessLevel.IDENTIFYING`** | A third level the gate treated exactly like `OPEN`. It documented why a tool was open, in a type whose only job is to decide whether a tool is open. §4. |
+| **`get_customer` setting `ctx.deps.customer`** | A domain tool granting its own session the privilege it needs. Moved to `IdentityGate.after_tool_execute` so the security decision lives in the security layer. §4. |
+| **`groq_reasoning_format="hidden"`** | "hidden" only suppresses the reasoning; a thinking model still writes its analysis into the *content* channel when it decides no tool is needed, and Groq then fails to parse the response. `"parsed"` gives reasoning its own field and maps to a `ThinkingPart` (measured on `gpt-oss-20b`: parsed 3/3, hidden 1/3). |
 | **A tenacity retry transport** under the Groq client | Raising from inside an httpx transport hides the response from the SDK, so a 429 surfaced as "Connection error" and the rate limit became invisible. `AsyncGroq(max_retries=...)` honours `Retry-After` and raises a real `RateLimitError`. |
 | **`logfire.instrument_sqlite3`** | Zero spans: `aiosqlite` runs `sqlite3` on a worker thread. `instrument_httpx` is instrumented instead, and it is what makes the Groq SDK's own retries legible. |
+| **An in-process dict for conversation history** | Lost every conversation on redeploy and wrong with a second worker. SQLite was already open, so the durable version cost a table (§10). |
 
 ---
 
@@ -377,24 +458,33 @@ keeps the whole stack runnable with no credentials at all.
 
 ## 9. Testing strategy
 
-The point of §3–§5 is that the guarantees are testable without an LLM. 43 tests, no API key,
+The point of §3–§5 is that the guarantees are testable without an LLM. 53 tests, no API key,
 under a second.
 
 - **`test_services.py`** — the service layer with no model in sight: customer scoping (Bunga's
   order is invisible to Andi), refund derived from `order_items`, Pydantic validation rejecting
-  bad input, policy refusals. Tools are adapters, so testing them would test the adapter; the
-  logic under test lives here.
-- **`test_guardrails.py`** — the four acceptance rules as *rules*: the address-change decision
-  table, the refund ceiling, escalation signal detection, and the identity gate's effect on the
-  offered tool surface.
+  bad input, policy refusals, and the refusal that must name its own order's courier (§6). Tools
+  are adapters, so testing them would test the adapter; the logic under test lives here — which
+  is why there is no `test_tools.py`.
+- **`test_guardrails.py`** — the acceptance rules as *rules*: the address-change decision table,
+  the refund ceiling, escalation signal detection, the gate's effect on the offered tool surface,
+  its refusal when a scoped tool is reached anyway, and the promotion — that `after_tool_execute`
+  verifies the session on the lookup tool's result and on nothing else.
 - **`test_api.py`** — the HTTP surface end to end, with `FunctionModel` scripting the tool calls
   so the assertions are about our code rather than about what a sampled completion happened to
-  say.
+  say. One test scripts a model that escalates but never says so, and asserts the response
+  reports `escalated=True` and the right `ticket_id` anyway — the §5.3 claim, at the HTTP layer.
 
 The tool surface assertion uses `TestModel(call_tools=[])` plus
 `model.last_model_request_parameters.function_tools` to check *which tools were offered* before
 and after verification — the `crayon-rm-library` `test_approval_mode.py` pattern. It tests the
 structural claim in §4 rather than a sampled behaviour.
+
+The seed carries eight orders because several rules are otherwise unreachable: an order that is
+still editable (4), one over the refund ceiling (5), an unpaid one (6), a cancelled one (7), one
+marked delivered that the customer says never arrived (8), and a customer with no orders at all.
+Orders 1–3 are fixed and asserted on; everything above is what makes the remaining paths — and a
+demo — reachable.
 
 `models.ALLOW_MODEL_REQUESTS = False` in `conftest.py` makes an accidental real Groq call a test
 failure rather than a bill. No test needs `GROQ_API_KEY`.
@@ -414,11 +504,42 @@ An in-process dict would have been shorter and is what the demo started with. It
 conversation on redeploy and is wrong the moment there is a second worker, and SQLite is already
 open — so the cheap version costs a table, not a service.
 
-Reading it back is a separate concern: `shared/transcript.py` reduces the stored messages to
-`(role, text, tools)` turns, which is what `GET /chat/{session_id}` returns. Nothing in a message
-marks the output tool, so the agent's reply is located by the output tool's name with a
-`TextPart` fallback, and tool calls that drew a retry are excluded — they never ran.
+Only the transcript is stored. Who the customer is arrives as injected context on every request,
+so a server-side copy of it would be a second source of truth that can drift from the one the
+caller actually sent.
 
-The chat UI at `/` (`api/static/index.html`) is one static file with no build step, deliberately:
-it exists so the agent can be tried without curl, and it appends each exchange to the page rather
-than re-reading the transcript endpoint.
+Reading it back is a separate concern, and it has two shapes. `transcript.read()` reduces the
+stored messages to `(role, text, tools)` turns — what `GET /chat/{session_id}` returns so a
+reloaded page can rebuild the conversation. `transcript.outcome()` extracts `escalated` and
+`ticket_id` from what ran, which is what makes §5.3 possible. Both exclude tool calls that drew a
+retry: those never executed. With no output tool the agent's reply is a `TextPart`; `read()` also
+still recognises a `final_result` call, so a transcript stored before §5.3 remains readable.
+
+---
+
+## 11. The chat surface
+
+**Decision.** `POST /chat/stream` returns server-sent events — `start`, `tool`, `delta`, `done` —
+and is what the UI uses. `POST /chat` still answers a whole turn in one response, because a
+programmatic caller wants the assembled `AgentReply` and not a parser.
+
+`agents/support/streaming.py` drives everything from one `event_stream_handler` into an
+`asyncio.Queue`, which the generator drains. The handler is a *callback*: it cannot yield into
+the response, so something has to carry its events across that boundary. A queue also preserves
+the run's own ordering between tool activity and text, which two independent sources would not.
+
+Two things cannot be streamed and arrive in the final `done` event: `escalated` and `ticket_id`
+are read from the transcript once the run is over (§5.3), so there is no moment during the run at
+which they are known.
+
+Tool activity is reported using each capability's `ACTIVITY` phrase (§4) — "Melacak posisi
+paket", never `track_shipment`. The tool name is an implementation detail of ours and reads to a
+customer as a leak, not as progress.
+
+Text deltas are coalesced to whole words before being sent. Character-level deltas flicker;
+word-level deltas read.
+
+The UI is a React 19 + Vite app in `frontend/`, built into `src/tokokita/api/static/` and served
+by the same FastAPI app, mounted last so the API routes win. The build output is gitignored: it
+is derived, and a checked-in bundle is a second copy of the frontend that can disagree with the
+source.

@@ -13,16 +13,19 @@ was real and re-doing it would cost the same day twice.
 
 | Package | Version | Notes |
 |---|---|---|
-| `pydantic-ai-slim[groq]` | **2.21.0** | V2 line. `pydantic-ai` (full) pulls every provider; slim + one extra is enough. ⟲ now pinned `>=2.22.0`. |
+| `pydantic-ai-slim[groq]` | **2.21.0** | V2 line. `pydantic-ai` (full) pulls every provider; slim + one extra is enough. ⟲ pinned `>=2.22.0`; **2.22.0** is what is installed now. Every signature below was re-checked against it and none moved. |
 | `pydantic-ai-harness` | **0.14.0** | Separate package, 0.x — APIs still stabilising. ⟲ researched only; never used, and the dependency has since been removed (DESIGN.md §5.4). |
 | `pydantic` | **2.13.4** | |
 | `pydantic-settings` | **2.14.2** | |
 | `fastapi[standard]` | **0.141.1** | Starlette 1.3.1, uvicorn 0.52.0. |
-| `logfire[fastapi]` | **4.39.0** | |
+| `logfire[fastapi]` | **4.39.0** | ⟲ the extra is now `logfire[fastapi,httpx]` — `instrument_httpx` earns its place, `instrument_sqlite3` did not (§8). |
 | `arize-phoenix-otel` | **0.16.1** | Only the client; the server runs in Docker. |
 | `openinference-instrumentation-pydantic-ai` | **0.1.18** | |
 | `aiosqlite` | 0.22.1 | |
 | `groq` | 1.6.0 | Transitive via the `[groq]` extra. |
+
+⟲ There is no `tenacity` and no `[retries]` extra in the installed set any more: the only thing
+either was for was the custom retry transport, removed in §7.
 
 Python pinned to **3.12** (`.python-version`). `arize-phoenix*` declares
 `requires_python = <3.15,>=3.10`; the machine's system Python is 3.14.4, which resolves,
@@ -114,6 +117,9 @@ agent = Agent('groq:openai/gpt-oss-120b', deps_type=MyDeps)   # the TYPE, not an
 result = await agent.run('...', deps=MyDeps(...))
 ```
 
+(The model id here is incidental to the `deps_type` point — ⟲ the shipped default is
+`openai/gpt-oss-20b`, see §7.)
+
 `RunContext[MyDeps]` as the first parameter of tools, instructions, output validators and
 guardrails gives `ctx.deps`. Verified `RunContext` fields include:
 
@@ -182,6 +188,10 @@ async def prepare_tools(self, ctx, tool_defs: list[ToolDefinition]) -> list[Tool
 `wrap_tool_execute` + `prepare_tools` + `tool_def.metadata` is exactly the pair needed to
 enforce an access policy in one place for all current and future tools.
 
+⟲ The shipped `IdentityGate` uses `wrap_tool_execute` + `prepare_tools` but not `metadata` — it
+keys on `tool_def.name` instead. Nothing in the codebase sets `ToolDefinition.metadata`. See the
+⟲ in §2.
+
 ---
 
 ## 5. Pydantic AI Harness — guardrails
@@ -245,6 +255,9 @@ agent = Agent('...', capabilities=[InputGuardrail(guard=no_secrets), OutputGuard
 
 ## 6. Structured output
 
+⟲ **Research only — none of this is used.** `output_type` is plain `str` and the agent has no
+output tool at all. Read to the end of the section for why.
+
 ```python
 agent = Agent('...', output_type=AgentReply)
 result = await agent.run(prompt, deps=deps)
@@ -267,6 +280,19 @@ the instructions, `gpt-oss` invented a tool named `json` / `agent_reply` and cal
 of answering. `ToolOutput` is reliable on the same model once `parallel_tool_calls=False` and
 `groq_reasoning_format="hidden"` are set on `GroqModelSettings` — the failure was never the
 output mode.
+
+⟲⟲ Both halves of that sentence have since reversed, and the whole of §6 is now research only.
+
+- **`output_type` is plain `str`.** There is no output tool at all — not `PromptedOutput`, not
+  `ToolOutput`, not an `AgentReply` output type. Every mode above still works as documented;
+  none of them is used. Measured on the failing scenario: `AgentReply` behind an output tool
+  succeeded 2/4, plain `str` 4/4. `AgentReply` survives as an ordinary response model assembled
+  by the runtime after the run — `message` from `result.output`, the rest read off the
+  transcript — so it is no longer something the model has to call correctly.
+- **`groq_reasoning_format` is `"parsed"`, not `"hidden"`.** See §7.
+
+`@agent.output_validator` still applies with `output_type=str`, and is what enforces escalation
+(`escalation_is_honoured`).
 
 ---
 
@@ -302,13 +328,41 @@ whisper-large-v3 / -turbo       playai-tts / playai-tts-arabic
 **Chosen default: `groq:openai/gpt-oss-120b`** — the strongest tool-caller in the list.
 `llama-3.3-70b-versatile` is the documented fallback. Read from the `MODEL_NAME` env var.
 
-⟲ The shipped default is `openai/gpt-oss-20b`, read from `TOKOKITA_MODEL_NAME`. Any Groq model
-id is still accepted, so 120b is one env var away.
+⟲ The shipped default is **`openai/gpt-oss-20b`**, read from `TOKOKITA_MODEL_NAME`
+(`Settings.model_name`). Chosen on measurement, not on the paper ranking above — run against the
+real scenarios: `gpt-oss-20b` 4/4, `llama-3.3-70b-versatile` 3/4 (failed a public-catalog
+question), `gpt-oss-120b` and `qwen3.6-27b` untestable that day, daily token quota exhausted.
+`GroqModelName` is still a `Literal[...] | str` union, so 120b remains one env var away.
 
-⟲ A tenacity retry transport under the Groq client was written and removed. Raising from inside
-an httpx transport hides the response from the SDK, so a 429 surfaced as "Connection error" and
-the rate limit was invisible. `AsyncGroq(max_retries=...)` honours `Retry-After` and raises a
-real `RateLimitError`, so there is nothing left to add.
+### `groq_reasoning_format` — ⟲ `"parsed"`, not `"hidden"`
+
+The default is **`"parsed"`** (`Settings.reasoning_format`, `Literal["hidden","raw","parsed"] |
+None`, empty string means off for a non-reasoning model that would reject the parameter).
+Measured on `gpt-oss-20b`: parsed 3/3, hidden 1/3.
+
+`"hidden"` only *suppresses* the reasoning. The model still writes its analysis into the
+**content** channel whenever it decides no tool is needed, and Groq then rejects the response
+with a 400 `output_parse_failed`. `"parsed"` gives the reasoning its own field, which
+pydantic-ai maps to a `ThinkingPart` — out of the content channel entirely. Anywhere above or in
+§6 that recommends `"hidden"`, read `"parsed"`.
+
+`parallel_tool_calls=False` is unchanged and still required: every tool shares one aiosqlite
+connection.
+
+### Free-tier limits
+
+Per model: **200,000 tokens/day** and 8,000 tokens/minute (12,000 for
+`llama-3.3-70b-versatile`). One turn costs roughly 2k tokens, so heavy testing exhausts a model
+for the day. The per-minute 429 is what SDK retry is for; **the daily-quota 429 is not
+retryable inside a request** — the only move is a different model id.
+
+⟲ A tenacity retry transport (`AsyncTenacityTransport`) under the Groq client was written and
+removed. Raising from inside an httpx transport hides the response from the SDK, which then
+reports a 429 as `APIConnectionError: Connection error` — the rate limit becomes invisible,
+which is the one thing you need to see on a 200k/day quota.
+`AsyncGroq(max_retries=settings.http_retries)` honours `Retry-After` and maps 429 to a proper
+`RateLimitError`, so there is nothing left to add and the `[retries]` extra is no longer
+installed.
 
 ---
 
@@ -352,9 +406,13 @@ logfire.instrument_pydantic_ai(obj=None, *, include_content=None, version=None, 
 logfire.instrument_sqlite3(conn=None)
 ```
 
-⟲ `instrument_sqlite3` was wired up and removed: it emitted zero spans, because `aiosqlite` runs
-`sqlite3` on a worker thread. `instrument_httpx` is the one that earns its place — it is what
-makes the Groq SDK's own 429 retries visible.
+⟲ `instrument_sqlite3` was wired up and removed: it emitted **zero spans** — none for
+`aiosqlite`, which runs `sqlite3` on a worker thread, and none for plain `sqlite3` in this
+environment either. The `conn=None` global-patch form was the one tried.
+
+`instrument_httpx(capture_headers=False)` is the one that earns its place and is verified
+working: **3 spans per turn**. It is what makes the Groq SDK's own 429 retries visible — exactly
+what was invisible while a rate limit was being misread as a connection error (§7).
 
 ### Scrubbing / PII
 
@@ -444,8 +502,19 @@ It reads **both** the v2 shape (`events` / `all_messages_events`) and the v3+ sh
 `InstrumentationSettings` defaults to `version=5`; the project pins it explicitly and the
 setting is exposed as an env var so it can be dropped to `2` if a Phoenix release regresses.
 
+⟲ No env var in the end: `logfire.instrument_pydantic_ai(version=5)` is a literal in
+`shared/telemetry.py`. A knob nobody has ever turned, for a regression that has not happened, is
+one more setting to keep true.
+
 Use HTTP/protobuf on port **6006** (`/v1/traces`), not gRPC 4317 — that is what
 `opentelemetry-exporter-otlp-proto-http` speaks.
+
+### Cost is Phoenix's job, not ours
+
+Phoenix computes cost itself from `llm.token_count.*` + `llm.model_name` + `llm.provider`, and
+Groq models are in its built-in pricing table. So recording token counts under the OpenInference
+names is the whole of it — no manual price entry, and nothing to keep in sync when Groq
+repricing lands.
 
 ---
 
@@ -499,6 +568,68 @@ Derived from the above; applied concretely in DESIGN.md §7.
 **The governing question:** *does this behaviour belong to one action, or to every action?*
 One action → tool. Every action → capability. The moment the answer is "every action" and
 the implementation is a copy-pasted `if`, the abstraction is at the wrong altitude.
+
+---
+
+## 12. Message history, persistence, streaming — verified later
+
+Researched after the sections above, once the code needed them. Same rules: signatures taken
+from the installed `pydantic-ai-slim` 2.22.0.
+
+### Transcript serialisation
+
+```python
+from pydantic_ai.messages import ModelMessagesTypeAdapter, sanitize_messages
+
+ModelMessagesTypeAdapter.dump_json(messages) -> bytes
+ModelMessagesTypeAdapter.validate_json(data)  -> list[ModelMessage]
+
+sanitize_messages(messages, *, strip_system_prompts: bool = True,
+                  allowed_file_url_schemes=('http','https'),
+                  allowed_file_url_force_download=(), allow_uploaded_files=False,
+                  resolved_tool_call_ids=()) -> list[ModelMessage]
+```
+
+`ModelMessagesTypeAdapter` is the canonical serialiser — a `TypeAdapter` over the message
+union, so a part type added by a future release round-trips without a schema migration of ours.
+`sanitize_messages` exists for exactly the persistence case, and `strip_system_prompts` already
+defaults to `True`: instructions are re-injected on every run, so a stored copy only grows the
+row and risks replaying a stale prompt.
+
+### Nothing in a message marks the output tool
+
+```python
+typing.get_args(pydantic_ai.messages.ToolPartKind)   # ('tool-search', 'capability-load')
+```
+
+`ToolPartKind` covers those two and nothing else — there is no `'output'` kind. A transcript
+reader therefore has to identify the agent's reply by the **output tool's name** (`final_result`
+unless renamed) and fall back to a `TextPart`. With `output_type=str` (§6) it is always the
+`TextPart` branch; the name branch is kept for the day an output tool comes back.
+
+### `conversation_id` is what Phoenix files as `session.id`
+
+```python
+await agent.run(prompt, deps=deps, message_history=history, conversation_id=session_id)
+await agent.run_stream(..., conversation_id=session_id)
+```
+
+Both accept it, and every child span reports it as `session.id`. Without it Phoenix files every
+turn as its own session and multi-turn conversations cannot be read back as conversations —
+which is most of what the Sessions view is for. Note that `session.id` matches Logfire's
+`session` scrub pattern, so it needs a `ScrubbingOptions(callback=...)` that returns the value
+for that path or it is redacted before export (§8).
+
+### `event_stream_handler` is a callback, not a generator
+
+```python
+EventStreamHandler = Callable[[RunContext[AgentDepsT], AsyncIterable[Event]], Awaitable[None]]
+```
+
+It returns `Awaitable[None]`, so it **cannot yield into a response**. Streaming to SSE means the
+handler pushes onto an `asyncio.Queue` while the run executes as a task, and the endpoint drains
+the queue — which is also what keeps tool activity and text deltas in the order the run produced
+them.
 
 ---
 
