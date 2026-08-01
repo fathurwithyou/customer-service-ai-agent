@@ -1,0 +1,96 @@
+:root {
+  color-scheme: light dark;
+  --ease-out: cubic-bezier(.22,.61,.36,1);
+  --line: color-mix(in srgb, currentColor 14%, transparent);
+  --faint: color-mix(in srgb, currentColor 5%, transparent);
+  --accent: #2f7d5a;
+}
+* { box-sizing: border-box; }
+body { font: 15px/1.6 system-ui, sans-serif; max-width: 44rem; margin: 0 auto;
+       padding: 2rem 1rem 7rem; }
+
+header { display: flex; align-items: baseline; gap: .5rem; margin-bottom: 1.5rem; }
+h1 { font-size: .95rem; font-weight: 600; margin: 0; opacity: .55; }
+.who { font-size: .78rem; opacity: .6; }
+
+.log { display: flex; flex-direction: column; }
+.customer { align-self: flex-end; max-width: 82%; margin: 14px 0 18px;
+            background: var(--faint); border: 1px solid var(--line);
+            border-radius: 14px 14px 4px 14px; padding: .55rem .85rem;
+            animation: rise .3s var(--ease-out) both; }
+.agent { margin: 4px 0 20px; animation: rise .3s var(--ease-out) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(7px) } to { opacity: 1; transform: none } }
+
+/* React keeps existing nodes across deltas, so only newly appended blocks run this --
+   the earlier text stays put instead of re-blurring on every chunk. */
+.agent p, .agent li { animation: blurIn .42s var(--ease-out) both; }
+@keyframes blurIn { from { opacity: 0; filter: blur(4px) } to { opacity: 1; filter: blur(0) } }
+
+.caret { display: inline-block; width: 7px; height: 1em; vertical-align: -2px;
+         margin-left: 2px; background: var(--accent); border-radius: 1px;
+         animation: caret 1s steps(1) infinite; }
+@keyframes caret { 50% { opacity: 0 } }
+
+
+
+              opacity: .3; animation: bloom 1.15s var(--ease-out) infinite;
+              animation-delay: calc(var(--i) * .13s); }
+@keyframes bloom { 30% { opacity: .85; transform: translateY(-3px) } }
+
+.badges { display: flex; gap: .4rem; margin-top: .6rem; flex-wrap: wrap; }
+.badge { font-size: .72rem; padding: .18rem .55rem; border-radius: 1rem;
+         border: 1px solid var(--line); opacity: .9;
+         animation: rise .34s var(--ease-out) both; }
+.badge.esc { border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
+
+.agent p { margin: 0 0 .6rem; }
+.agent ul { margin: .3rem 0 .7rem; padding-left: 1.15rem; }
+.agent li { margin: .15rem 0; }
+.agent code { font-family: ui-monospace, monospace; font-size: .88em;
+              background: var(--faint); padding: .1rem .3rem; border-radius: 4px; }
+.agent strong { font-weight: 650; }
+
+form { position: fixed; inset: auto 0 0; background: color-mix(in srgb, Canvas 92%, transparent);
+       backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+       padding: .8rem 1rem; display: flex; gap: .5rem; max-width: 44rem; margin: 0 auto; }
+input { flex: 1; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .6rem;
+        background: transparent; color: inherit; font: inherit;
+        transition: border-color .18s var(--ease-out); }
+input:focus { outline: 0; border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.hint { width: 13rem; flex: none; }
+button { padding: .6rem 1.1rem; border: 0; border-radius: .6rem; font: inherit; font-weight: 550;
+         cursor: pointer; background: var(--accent); color: #fff;
+         transition: transform .12s var(--ease-out), opacity .18s; }
+button:active { transform: scale(.96); }
+button:disabled { opacity: .45; cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .customer, .agent, .agent p, .agent li, .badge { animation: none }
+  .thinking i { animation: none; opacity: .5 }
+}
+
+.working { display: inline-flex; align-items: center; gap: 9px; padding: 6px 0; }
+.wlabel { font-size: .82rem; opacity: .55; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .95 } }
+.dots { display: inline-flex; gap: 5px; }
+.dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+          opacity: .3; animation: bloom 1.15s var(--ease-out) infinite;
+          animation-delay: calc(var(--i) * .13s); }
+@media (prefers-reduced-motion: reduce) {
+  .dots i, .wlabel { animation: none; opacity: .5 }
+}
+
+/* Tables arrive when the agent lists orders; they must scroll rather than widen the page. */
+.agent table { width: 100%; border-collapse: collapse; margin: .5rem 0 .9rem; font-size: .9rem;
+               display: block; overflow-x: auto; }
+.agent th, .agent td { padding: .4rem .6rem; text-align: left; white-space: nowrap;
+                       border-bottom: 1px solid var(--line); }
+.agent th { font-weight: 600; opacity: .7; font-size: .8rem; text-transform: uppercase;
+            letter-spacing: .03em; }
+.agent tbody tr:last-child td { border-bottom: 0; }
+.agent a { color: var(--accent); }
+.agent h1, .agent h2, .agent h3 { font-size: 1em; font-weight: 650; margin: .8rem 0 .3rem; }
+.agent pre { background: var(--faint); padding: .6rem .8rem; border-radius: .5rem;
+             overflow-x: auto; margin: .4rem 0 .8rem; }
+.agent blockquote { margin: .4rem 0; padding-left: .8rem; border-left: 2px solid var(--line);
+                    opacity: .8; }
