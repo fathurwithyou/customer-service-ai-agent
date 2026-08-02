@@ -73,19 +73,23 @@ async def test_sessions_do_not_bleed(session: AsyncSession) -> None:
 
 
 async def test_system_prompts_are_not_stored(session: AsyncSession) -> None:
+    """Instructions are re-injected every run, so a stored one is only a stale copy waiting to
+    be replayed. The framework warns when it strips them; that warning is the assertion.
+    """
     store = MessageStore(session)
-    await store.append(
-        "s",
-        [
-            ModelRequest(
-                parts=[SystemPromptPart(content="rahasia"), UserPromptPart(content="halo")],
-                run_id="r1",
-            )
-        ],
-    )
+    with pytest.warns(UserWarning, match="system prompts were stripped"):
+        await store.append(
+            "s",
+            [
+                ModelRequest(
+                    parts=[SystemPromptPart(content="rahasia"), UserPromptPart(content="halo")],
+                    run_id="r1",
+                )
+            ],
+        )
     payload = await session.scalar(
         select(tables.ConversationMessage.payload).where(
             tables.ConversationMessage.session_id == "s"
         )
     )
-    assert payload is not None and "rahasia" not in payload
+    assert [type(p).__name__ for p in payload.parts] == ["UserPromptPart"]

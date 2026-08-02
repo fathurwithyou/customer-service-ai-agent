@@ -1,16 +1,22 @@
 """The HTTP surface end to end. `FunctionModel` fixes which tools the agent calls, so a reply
 can be checked for *grounding* rather than for whether a sampled completion looked right.
+
+`ASGITransport`, not `TestClient`: the latter drives the app from a worker thread on its own
+event loop, and an asyncpg connection belongs to the loop that opened it.
 """
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 import pytest
-from fastapi.testclient import TestClient
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from sqlalchemy import func, select
 
-from tokokita.agentic_system.agents.support.agent import build_agent
 from tokokita.agentic_system.shared.database import Sessions
 from tokokita.agentic_system.shared.settings import Settings
 from tokokita.api.app import create_app
@@ -25,6 +31,15 @@ def _settings() -> Settings:
     return Settings(groq_api_key=None, phoenix_endpoint="")
 
 
+@asynccontextmanager
+async def serving(app: FastAPI) -> AsyncIterator[AsyncClient]:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        yield client
+
+
 def _script(*calls: tuple[str, dict]) -> FunctionModel:
     def model_fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         step = sum(isinstance(m, ModelResponse) for m in messages)
@@ -37,8 +52,8 @@ def _script(*calls: tuple[str, dict]) -> FunctionModel:
 
 
 async def test_health(sessions: Sessions) -> None:
-    with TestClient(create_app(_settings(), sessions=sessions)) as client:
-        assert client.get("/health").json() == {"status": "ok"}
+    async with serving(create_app(_settings(), sessions=sessions)) as client:
+        assert (await client.get("/health")).json() == {"status": "ok"}
 
 
 async def test_where_is_my_order_is_grounded_in_tool_calls(sessions: Sessions) -> None:
@@ -46,16 +61,16 @@ async def test_where_is_my_order_is_grounded_in_tool_calls(sessions: Sessions) -
     settings = _settings()
     model = _script(("get_order_detail", {"order_id": 1}), ("track_shipment", {"order_id": 1}))
     app = create_app(settings, sessions=sessions)
-    with TestClient(app) as client:
-        app.state.agent = build_agent(settings, model=model)
-        response = client.post(
-            "/chat",
-            json={
-                "session_id": "s1",
-                "customer_hint": "andi@example.com",
-                "message": "Pesanan 1 saya sudah sampai mana?",
-            },
-        )
+    async with serving(app) as client:
+        with app.state.agent.override(model=model):
+            response = await client.post(
+                "/chat",
+                json={
+                    "session_id": "s1",
+                    "customer_hint": "andi@example.com",
+                    "message": "Pesanan 1 saya sudah sampai mana?",
+                },
+            )
     assert response.status_code == 200
     body = response.json()
     assert "JNE0012345678" in body["message"]
@@ -64,19 +79,20 @@ async def test_where_is_my_order_is_grounded_in_tool_calls(sessions: Sessions) -
 
 async def test_debug_order_endpoint_requires_verification(sessions: Sessions) -> None:
     """Acceptance criterion 4, at the HTTP layer: no identity, no data."""
-    with TestClient(create_app(_settings(), sessions=sessions)) as client:
-        anon = client.get("/orders/1", params={"customer_hint": "nobody@example.com"})
+    async with serving(create_app(_settings(), sessions=sessions)) as client:
+        anon = await client.get("/orders/1", params={"customer_hint": "nobody@example.com"})
         assert anon.status_code == 401
-        ok = client.get("/orders/1", params={"customer_hint": "andi@example.com"})
+        ok = await client.get("/orders/1", params={"customer_hint": "andi@example.com"})
         assert ok.status_code == 200 and ok.json()["order_id"] == 1
         # Verified as Andi is not verified as Bunga -- order 3 is hers.
-        hers = client.get("/orders/3", params={"customer_hint": "andi@example.com"})
+        hers = await client.get("/orders/3", params={"customer_hint": "andi@example.com"})
         assert hers.status_code == 404
 
 
 async def test_chat_rejects_invalid_body(sessions: Sessions) -> None:
-    with TestClient(create_app(_settings(), sessions=sessions)) as client:
-        assert client.post("/chat", json={"session_id": "s1", "message": ""}).status_code == 422
+    async with serving(create_app(_settings(), sessions=sessions)) as client:
+        response = await client.post("/chat", json={"session_id": "s1", "message": ""})
+        assert response.status_code == 422
 
 
 async def test_outcome_is_read_from_the_transcript_not_claimed(sessions: Sessions) -> None:
@@ -99,17 +115,18 @@ async def test_outcome_is_read_from_the_transcript_not_claimed(sessions: Session
         ("escalate_ticket", {"ticket_id": expected_ticket, "reason": "minta manusia"}),
     )
     app = create_app(settings, sessions=sessions)
-    with TestClient(app) as client:
-        app.state.agent = build_agent(settings, model=model)
-        body = client.post(
-            "/chat",
-            json={
-                "session_id": "esc",
-                "customer_hint": "andi@example.com",
-                "message": "Saya mau bicara dengan manusia",
-            },
-        ).json()
+    async with serving(app) as client:
+        with app.state.agent.override(model=model):
+            response = await client.post(
+                "/chat",
+                json={
+                    "session_id": "esc",
+                    "customer_hint": "andi@example.com",
+                    "message": "Saya mau bicara dengan manusia",
+                },
+            )
 
+    body = response.json()
     assert body["message"] == REPLY  # the only thing the model produced
     assert body["escalated"] is True
     assert body["ticket_id"] == expected_ticket
@@ -127,11 +144,12 @@ async def test_a_crashed_run_is_persisted_once_not_duplicated(sessions: Sessions
 
     settings = _settings()
     app = create_app(settings, sessions=sessions)
-    with TestClient(app) as client:
-        app.state.agent = build_agent(settings, model=FunctionModel(explode))
-        body = {"session_id": "boom", "customer_hint": None, "message": "halo"}
-        assert client.post("/chat", json=body).json()["message"] == "halo"
-        assert "sedang bermasalah" in client.post("/chat", json=body).json()["message"]
+    async with serving(app) as client:
+        with app.state.agent.override(model=FunctionModel(explode)):
+            body = {"session_id": "boom", "customer_hint": None, "message": "halo"}
+            assert (await client.post("/chat", json=body)).json()["message"] == "halo"
+            crashed = await client.post("/chat", json=body)
+            assert "sedang bermasalah" in crashed.json()["message"]
 
     async with sessions() as session:
         rows = (
@@ -143,5 +161,4 @@ async def test_a_crashed_run_is_persisted_once_not_duplicated(sessions: Sessions
         ).all()
     kinds = [r.kind for r in rows]
     assert kinds == ["request", "response", "request"], kinds
-    assert len({r.payload for r in rows}) == 3, "the failed run re-inserted the earlier turn"
-
+    assert len({r.seq for r in rows}) == 3, "the failed run re-inserted the earlier turn"

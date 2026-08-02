@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 import pytest
 from pydantic_ai import models
@@ -18,9 +18,15 @@ from tokokita.agentic_system.shared.database import (
     session_factory,
 )
 from tokokita.agentic_system.shared.settings import Settings
-from tokokita.data.seed import seed_if_empty
+from tokokita.data.seed import load_seed
 
 models.ALLOW_MODEL_REQUESTS = False
+
+# Its own database, because every test drops the schema. `docker compose up -d db` creates it.
+TEST_URL = os.getenv(
+    "TOKOKITA_TEST_DATABASE_URL",
+    "postgresql+asyncpg://tokokita:tokokita@localhost:5433/tokokita_test",
+)
 
 
 @pytest.fixture
@@ -29,11 +35,10 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture
-async def sessions(tmp_path: Path) -> AsyncIterator[Sessions]:
-    """A file, not `:memory:` -- each connection would otherwise get its own empty database."""
-    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
-    await create_schema(engine)
-    await seed_if_empty(engine)
+async def sessions() -> AsyncIterator[Sessions]:
+    engine = create_engine(TEST_URL)
+    await create_schema(engine, fresh=True)
+    await load_seed(engine)
     yield session_factory(engine)
     await engine.dispose()
 

@@ -101,8 +101,9 @@ def test_not_received_claim_is_recognised() -> None:
 
 async def _tools_offered(settings: Settings, deps: SupportDeps) -> set[str]:
     model = TestModel(call_tools=[])
-    agent = build_agent(settings, model=model)
-    await agent.run("halo", deps=deps)
+    agent = build_agent(settings)
+    with agent.override(model=model):
+        await agent.run("halo", deps=deps)
     return {t.name for t in model.last_model_request_parameters.function_tools}
 
 
