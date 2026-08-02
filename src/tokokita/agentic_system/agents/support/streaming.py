@@ -40,10 +40,10 @@ async def stream_turn(
     activity: dict[str, str],
 ) -> AsyncIterator[str]:
     async with session_scope(sessions) as session:
-        turn = await prepare(
+        intake = await prepare(
             session, session_id=session_id, message=message, customer_hint=customer_hint
         )
-        customer = turn.deps.customer
+        customer = intake.deps.customer
         yield event("start", {"customer_name": customer.full_name if customer else None})
 
         with logfire.span("chat turn") as span, capture_run_messages() as captured:
@@ -51,13 +51,13 @@ async def stream_turn(
                 session_id=session_id,
                 customer_id=customer.customer_id if customer else None,
                 message=message,
-                signals=turn.deps.escalation_signals,
+                signals=intake.deps.escalation_signals,
                 model=settings.model_name,
             )
             held = ""
             try:
                 async with agent.run_stream_events(
-                    message, **run_args(turn, session_id=session_id, settings=settings)
+                    message, **run_args(intake, session_id=session_id, settings=settings)
                 ) as events:
                     async for item in events:
                         if isinstance(item, FunctionToolCallEvent):
@@ -76,10 +76,10 @@ async def stream_turn(
                     yield event("delta", {"text": held})
             except Exception:  # noqa: BLE001
                 span.set_attribute("failed", True)
-                await salvage(turn, captured, session_id)
+                await salvage(intake, captured, session_id)
                 yield event("delta", {"text": FALLBACK.message})
                 yield event("done", FALLBACK.model_dump())
                 return
 
-        reply = await finish(turn, result, session_id=session_id, message=message)
+        reply = await finish(intake, result, session_id=session_id, message=message)
         yield event("done", reply.model_dump())

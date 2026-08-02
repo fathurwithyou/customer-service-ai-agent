@@ -4,7 +4,7 @@ runs -- both are deterministic and belong outside the model's reach.
 `prepare` and `finish` are shared with the streaming sibling, which differs only in what it
 emits while the run is in flight.
 
-The turn owns its session scope rather than taking one from a FastAPI dependency: a streaming
+A turn owns its session scope rather than taking one from a FastAPI dependency: a streaming
 response outlives dependency teardown, and both paths should behave the same way.
 """
 
@@ -40,7 +40,11 @@ FALLBACK = AgentReply(
 
 
 @dataclass
-class TurnContext:
+class Intake:
+    """Everything gathered before the model runs. Named for the phase rather than for the turn:
+    `Turn` already means a customer-visible exchange, on the wire and in the UI.
+    """
+
     store: MessageStore
     history: list[ModelMessage]
     deps: SupportDeps
@@ -74,12 +78,12 @@ async def classify(session: AsyncSession, message: str, customer: Customer | Non
 
 async def prepare(
     session: AsyncSession, *, session_id: str, message: str, customer_hint: str | None
-) -> TurnContext:
+) -> Intake:
     store = MessageStore(session)
     history = await store.load(session_id)
     customer = await resolve_customer(session, customer_hint)
     signals = await classify(session, message, customer)
-    return TurnContext(
+    return Intake(
         store=store,
         history=history,
         deps=SupportDeps(session=session, customer=customer, escalation_signals=signals),
@@ -93,15 +97,15 @@ async def prepare(
     )
 
 
-def run_args(turn: TurnContext, *, session_id: str, settings: Settings) -> dict[str, Any]:
+def run_args(intake: Intake, *, session_id: str, settings: Settings) -> dict[str, Any]:
     """Every argument both entry points hand the agent. Kept in one place because a difference
     between them would be a difference in behaviour that no test would name.
     """
     return {
-        "deps": turn.deps,
-        "message_history": turn.history,
+        "deps": intake.deps,
+        "message_history": intake.history,
         "conversation_id": session_id,
-        "metadata": turn.metadata,
+        "metadata": intake.metadata,
         "usage_limits": UsageLimits(
             request_limit=settings.request_limit,
             total_tokens_limit=settings.total_tokens_limit,
@@ -109,28 +113,28 @@ def run_args(turn: TurnContext, *, session_id: str, settings: Settings) -> dict[
     }
 
 
-async def finish(turn: TurnContext, result, *, session_id: str, message: str) -> AgentReply:
+async def finish(intake: Intake, result, *, session_id: str, message: str) -> AgentReply:
     escalated, ticket_id = transcript.outcome(result.all_messages())
     reply = AgentReply(
         message=result.output,
-        # turn.deps.customer, not the opening value: the gate promotes mid-run when the customer
+        # intake.deps.customer, not the opening value: the gate promotes mid-run when the customer
         # identifies themselves in conversation.
-        customer_name=turn.deps.customer.full_name if turn.deps.customer else None,
+        customer_name=intake.deps.customer.full_name if intake.deps.customer else None,
         escalated=escalated,
         ticket_id=ticket_id,
     )
     telemetry.record_answer(
         reply.message, escalated=escalated, ticket_id=ticket_id, usage=result.usage
     )
-    await turn.store.append(session_id, result.new_messages())
-    if turn.deps.customer is not None:
-        await turn.deps.tickets.record_turn(
-            turn.deps.customer.customer_id, ticket_id, message, reply.message
+    await intake.store.append(session_id, result.new_messages())
+    if intake.deps.customer is not None:
+        await intake.deps.tickets.record_turn(
+            intake.deps.customer.customer_id, ticket_id, message, reply.message
         )
     return reply
 
 
-async def salvage(turn: TurnContext, captured: list[ModelMessage], session_id: str) -> None:
+async def salvage(intake: Intake, captured: list[ModelMessage], session_id: str) -> None:
     """Keep what a crashed run produced -- without this the turn vanishes from the record.
 
     `capture_run_messages` hands back the history it was given as well, so the new messages are
@@ -138,7 +142,7 @@ async def salvage(turn: TurnContext, captured: list[ModelMessage], session_id: s
     """
     logfire.exception("agent run failed")
     telemetry.record_answer(FALLBACK.message, escalated=False, ticket_id=None)
-    await turn.store.append(session_id, captured[len(turn.history) :])
+    await intake.store.append(session_id, captured[len(intake.history) :])
 
 
 async def run_turn(
@@ -151,26 +155,26 @@ async def run_turn(
     settings: Settings,
 ) -> AgentReply:
     async with session_scope(sessions) as session:
-        turn = await prepare(
+        intake = await prepare(
             session, session_id=session_id, message=message, customer_hint=customer_hint
         )
 
         with logfire.span("chat turn") as span, capture_run_messages() as captured:
             telemetry.describe_turn(
                 session_id=session_id,
-                customer_id=turn.deps.customer.customer_id if turn.deps.customer else None,
+                customer_id=intake.deps.customer.customer_id if intake.deps.customer else None,
                 message=message,
-                signals=turn.deps.escalation_signals,
+                signals=intake.deps.escalation_signals,
                 model=settings.model_name,
             )
             try:
                 result = await agent.run(
-                    message, **run_args(turn, session_id=session_id, settings=settings)
+                    message, **run_args(intake, session_id=session_id, settings=settings)
                 )
             except Exception:  # noqa: BLE001
                 # A customer-facing endpoint must never answer with a stack trace.
                 span.set_attribute("failed", True)
-                await salvage(turn, captured, session_id)
+                await salvage(intake, captured, session_id)
                 return FALLBACK
 
-        return await finish(turn, result, session_id=session_id, message=message)
+        return await finish(intake, result, session_id=session_id, message=message)
