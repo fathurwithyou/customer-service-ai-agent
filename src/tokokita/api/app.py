@@ -34,7 +34,7 @@ from ..agentic_system.shared.database import (
 )
 from ..agentic_system.shared.message_store import MessageStore
 from ..agentic_system.shared.settings import Settings
-from ..agentic_system.shared.telemetry import setup_observability
+from ..agentic_system.shared.telemetry import instrument_database, setup_observability
 from ..agentic_system.shared.transcript import Turn, read
 from ..data.seed import seed_if_empty
 
@@ -94,6 +94,7 @@ def create_app(settings: Settings | None = None, *, sessions: Sessions | None = 
             yield
             return
         engine = create_engine(settings.database_url)
+        instrument_database(engine)
         await create_schema(engine)
         await seed_if_empty(engine)
         app.state.sessions = session_factory(engine)

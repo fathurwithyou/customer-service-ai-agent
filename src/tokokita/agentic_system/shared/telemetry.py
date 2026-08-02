@@ -18,6 +18,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from pydantic_ai.usage import RunUsage
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .settings import Settings
 
@@ -129,6 +130,13 @@ def record_answer(
         span.set_attribute("model_requests", usage.requests)
 
 
+def instrument_database(engine: AsyncEngine) -> None:
+    """Must be given the engine. The argument-less form patches connection setup only, so it
+    emits `connect` and no query spans at all -- measured: 8 connects, 0 SELECTs.
+    """
+    logfire.instrument_sqlalchemy(engine=engine)
+
+
 def span_processors(settings: Settings) -> list[SpanProcessor]:
     if not settings.phoenix_endpoint:
         return []
@@ -169,7 +177,6 @@ def setup_observability(settings: Settings, app: FastAPI) -> None:
         logfire.instrument_pydantic_ai(version=5)
         # Makes the SDK's 429 retries visible -- a rate limit once read as a connection error.
         logfire.instrument_httpx(capture_headers=False)
-        logfire.instrument_sqlalchemy()
         # "failure", not "all": successful validations say nothing and bury the real spans.
         logfire.instrument_pydantic(record="failure")
         _configured = True
