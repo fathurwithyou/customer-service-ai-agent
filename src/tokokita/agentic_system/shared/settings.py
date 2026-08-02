@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # fails to parse (gpt-oss-20b: 3/3 vs 1/3). Empty for a non-reasoning model.
     reasoning_format: Literal["hidden", "raw", "parsed"] | None = "parsed"
 
-    database_url: str = "sqlite+aiosqlite:///./tokokita.db"
+    database_url: str = "postgresql+asyncpg://tokokita:tokokita@localhost:5433/tokokita"
 
     # Both optional: the stack runs with no credentials.
     logfire_token: SecretStr | None = None

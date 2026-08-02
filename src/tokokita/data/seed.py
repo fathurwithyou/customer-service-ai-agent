@@ -20,17 +20,22 @@ COMMENT = re.compile(r"--[^\n]*")
 
 
 def statements(sql: str) -> list[str]:
-    """DBAPI drivers take one statement per call, and aiosqlite's adapter hides executescript."""
+    """asyncpg sends one statement per call; there is no multi-statement entry point to use."""
     return [s for part in COMMENT.sub("", sql).split(";") if (s := part.strip())]
 
 
-async def seed_if_empty(engine: AsyncEngine) -> bool:
+async def load_seed(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
-        if await conn.scalar(select(func.count()).select_from(tables.Customer)):
-            return False
         for statement in statements(SEED.read_text()):
             await conn.execute(text(statement))
-        return True
+
+
+async def seed_if_empty(engine: AsyncEngine) -> bool:
+    async with engine.connect() as conn:
+        if await conn.scalar(select(func.count()).select_from(tables.Customer)):
+            return False
+    await load_seed(engine)
+    return True
 
 
 async def main() -> int:

@@ -5,8 +5,8 @@ description = "Customer service AI agent for the TokoKita marketplace."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "aiosqlite>=0.22.1",
     "arize-phoenix-otel>=0.16.1",
+    "asyncpg>=0.31.0",
     "fastapi[standard]>=0.141.1",
     "logfire[fastapi,httpx,sqlalchemy]>=4.39.0",
     "openinference-instrumentation-pydantic-ai>=0.1.18",
