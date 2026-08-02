@@ -26,6 +26,7 @@ from ...guardrails.identity_gate import IdentityGate
 from ...shared.model_factory import build_model
 from ...shared.settings import Settings
 from .deps import SupportDeps
+from .history import WINDOW
 from .instructions import BASE, customer_context, mandatory_escalation
 
 CAPABILITIES = [
@@ -60,7 +61,7 @@ def build_agent(settings: Settings, *, model: Any | None = None) -> Agent[Suppor
         output_type=str,
         retries=settings.tool_retries,
         instructions=BASE,
-        capabilities=[*CAPABILITIES, IdentityGate(access=TOOL_ACCESS)],
+        capabilities=[*CAPABILITIES, WINDOW, IdentityGate(access=TOOL_ACCESS)],
     )
     agent.instructions(customer_context)
     agent.instructions(mandatory_escalation)
