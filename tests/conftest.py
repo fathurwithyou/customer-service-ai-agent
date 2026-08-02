@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 from pydantic_ai import models
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokokita.agentic_system.agents.support.deps import SupportDeps
-from tokokita.agentic_system.capabilities.customers.schemas import Customer
-from tokokita.agentic_system.shared.database import Database
+from tokokita.agentic_system.capabilities.customers.services import CustomerLookup
+from tokokita.agentic_system.shared.database import (
+    Sessions,
+    create_engine,
+    create_schema,
+    session_factory,
+)
 from tokokita.agentic_system.shared.settings import Settings
+from tokokita.data.seed import seed_if_empty
 
 models.ALLOW_MODEL_REQUESTS = False
 
@@ -21,26 +29,34 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture
-async def db() -> AsyncIterator[Database]:
-    database = await Database.connect(":memory:", seed_if_empty=False)
-    await database.bootstrap()
-    yield database
-    await database.close()
+async def sessions(tmp_path: Path) -> AsyncIterator[Sessions]:
+    """A file, not `:memory:` -- each connection would otherwise get its own empty database."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
+    await create_schema(engine)
+    await seed_if_empty(engine)
+    yield session_factory(engine)
+    await engine.dispose()
+
+
+@pytest.fixture
+async def session(sessions: Sessions) -> AsyncIterator[AsyncSession]:
+    async with sessions() as db:
+        yield db
 
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(groq_api_key=None, phoenix_endpoint="", database_path=":memory:")
+    return Settings(groq_api_key=None, phoenix_endpoint="")
 
 
 @pytest.fixture
-async def andi(db: Database) -> SupportDeps:
+async def andi(session: AsyncSession) -> SupportDeps:
     """A verified turn as Andi (customer 1: order 1 shipped, order 2 delivered)."""
-    row = await db.customer_row("andi@example.com")
-    assert row is not None
-    return SupportDeps(db=db, customer=Customer(**row))
+    customer = await CustomerLookup(session).by_contact("andi@example.com")
+    assert customer is not None
+    return SupportDeps(session=session, customer=customer)
 
 
 @pytest.fixture
-def anonymous(db: Database) -> SupportDeps:
-    return SupportDeps(db=db)
+def anonymous(session: AsyncSession) -> SupportDeps:
+    return SupportDeps(session=session)

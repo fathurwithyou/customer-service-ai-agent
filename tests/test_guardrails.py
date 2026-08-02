@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 from pydantic_ai.models.test import TestModel
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tokokita.agentic_system.agents.support.agent import CAPABILITIES, TOOL_ACCESS, build_agent
 from tokokita.agentic_system.agents.support.deps import SupportDeps
@@ -14,9 +16,9 @@ from tokokita.agentic_system.capabilities.returns import policies as refund_poli
 from tokokita.agentic_system.capabilities.returns.services import ReturnService
 from tokokita.agentic_system.capabilities.tickets import policies as ticket_policies
 from tokokita.agentic_system.guardrails.identity_gate import IdentityGate
-from tokokita.agentic_system.shared.database import Database
 from tokokita.agentic_system.shared.results import ActionResult, ResultCode
 from tokokita.agentic_system.shared.settings import Settings
+from tokokita.data import tables
 
 pytestmark = pytest.mark.anyio
 
@@ -44,23 +46,33 @@ def test_refund_ceiling_is_exclusive(amount: float, escalate: bool) -> None:
     assert refund_policies.requires_escalation(amount) is escalate
 
 
-async def test_expensive_refund_is_refused_and_nothing_is_created(db: Database) -> None:
-    await db._db.execute(
-        "INSERT INTO orders (customer_id, status, total_amount, shipping_address, payment_method)"
-        " VALUES (1, 'delivered', 3000000, 'Jl. Melati No. 1, Jakarta', 'credit_card')"
+async def test_expensive_refund_is_refused_and_nothing_is_created(session: AsyncSession) -> None:
+    order = tables.Order(
+        customer_id=1,
+        status="delivered",
+        total_amount=3_000_000,
+        shipping_address="Jl. Melati No. 1, Jakarta",
+        payment_method="credit_card",
     )
-    await db._db.execute(
-        "INSERT INTO order_items (order_id, product_id, quantity, unit_price)"
-        " VALUES (4, 2, 3, 1000000)"
+    session.add(order)
+    await session.flush()
+    session.add(
+        tables.OrderItem(
+            order_id=order.order_id, product_id=2, quantity=3, unit_price=1_000_000
+        )
     )
-    await db._db.commit()
+    await session.commit()
 
-    result = await ReturnService(db).request(
-        order_id=4, product_id=2, reason="rusak semua", customer_id=1
+    result = await ReturnService(session).request(
+        order_id=order.order_id, product_id=2, reason="rusak semua", customer_id=1
     )
     assert isinstance(result, ActionResult)
     assert result.code is ResultCode.REFUND_EXCEEDS_LIMIT
-    assert await db.count_returns(4) == 0
+    assert not await session.scalar(
+        select(func.count())
+        .select_from(tables.Return)
+        .where(tables.Return.order_id == order.order_id)
+    )
 
 
 @pytest.mark.parametrize(
@@ -138,10 +150,10 @@ def test_unknown_tools_fail_closed() -> None:
     assert IdentityGate().needs_customer("some_future_tool") is True
 
 
-async def test_lookup_promotes_the_session(anonymous: SupportDeps, db: Database) -> None:
+async def test_lookup_promotes_the_session(anonymous: SupportDeps, session: AsyncSession) -> None:
     """The privilege transition belongs to the gate, not to the tool that returns the customer."""
 
-    customer = await CustomerLookup(db).by_contact("andi@example.com")
+    customer = await CustomerLookup(session).by_contact("andi@example.com")
 
     class _Ctx:
         deps = anonymous
@@ -160,9 +172,9 @@ async def test_lookup_promotes_the_session(anonymous: SupportDeps, db: Database)
     assert anonymous.customer == customer
 
 
-async def test_other_tools_do_not_promote(anonymous: SupportDeps, db: Database) -> None:
+async def test_other_tools_do_not_promote(anonymous: SupportDeps, session: AsyncSession) -> None:
 
-    customer = await CustomerLookup(db).by_contact("andi@example.com")
+    customer = await CustomerLookup(session).by_contact("andi@example.com")
 
     class _Ctx:
         deps = anonymous
