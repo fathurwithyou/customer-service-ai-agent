@@ -1,8 +1,7 @@
-"""The base for every model a tool hands back.
+"""The base for every model a tool hands back, validated straight off an ORM row.
 
-`from_attributes` lets these be validated straight off an ORM row, so a field is copied by
-declaring it, not by writing an assignment. What a model omits is the point: `Customer` has no
-`email` or `phone`, and that absence is what keeps a contact detail out of the transcript.
+What these omit is the point: `Customer` has no `email` or `phone`, and that absence is what
+keeps a contact detail out of the transcript.
 """
 
 from __future__ import annotations

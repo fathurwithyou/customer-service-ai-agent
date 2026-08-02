@@ -1,13 +1,6 @@
-"""What the model sees, which is less than what we store.
+"""What the model sees, which is less than what we store. DESIGN §10.
 
-Windowing belongs to the agent, not to the store, so it is a `ProcessHistory` capability rather
-than a clause in the load query.
-
-The window counts runs, not messages: cutting mid-run would separate a tool call from its
-return. A run that died mid-flight is dropped for the same reason -- it can hold a call with no
-return, and replaying that is a malformed request. `state` alone does not catch this: the
-framework only writes `interrupted` when a tool was cancelled, not when the model call itself
-raised, so the test is whether every call in the run was answered.
+Runs, not messages: cutting mid-run separates a tool call from its return.
 """
 
 from __future__ import annotations

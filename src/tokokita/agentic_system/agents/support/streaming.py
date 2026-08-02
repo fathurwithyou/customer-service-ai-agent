@@ -1,12 +1,7 @@
-"""Stream a turn as server-sent events.
+"""Stream a turn as server-sent events. DESIGN §11.
 
-`agent.run_stream_events` is the framework's own event stream, so this is a plain `async for`
-over the run -- no queue, no background task, and the ordering of tool activity against text is
-the run's own. It is a context manager because a client that disconnects mid-answer stops
-iterating, and the run has to be torn down deterministically when that happens.
-
-Deltas are coalesced to words so the client animates a word at a time, not a character. The
-outcome is only known after the run, so it arrives in a final `done` event.
+Deltas are coalesced to words: character-level deltas flicker. The outcome is only known once
+the run is over, so it arrives in a final `done` event.
 """
 
 from __future__ import annotations

@@ -1,11 +1,10 @@
 """One turn, start to finish. Identity and escalation signals are resolved before the agent
 runs -- both are deterministic and belong outside the model's reach.
 
-`prepare` and `finish` are shared with the streaming sibling, which differs only in what it
-emits while the run is in flight.
+`prepare` and `finish` are shared with the streaming sibling.
 
-A turn owns its session scope rather than taking one from a FastAPI dependency: a streaming
-response outlives dependency teardown, and both paths should behave the same way.
+A turn opens its own session scope rather than taking a FastAPI dependency: a streaming
+response outlives dependency teardown, so that path would be handed a closed session.
 """
 
 from __future__ import annotations

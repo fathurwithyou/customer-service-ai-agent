@@ -1,11 +1,8 @@
-"""Conversation persistence, one row per message.
+"""Conversation persistence, one row per message. Columns are the fields every message has;
+the message itself goes in `payload`, so nothing here serialises anything.
 
-Only the fields pydantic-ai puts on *every* message become columns; the message itself goes in
-`payload`, a JSONB column typed as `ModelMessage`. Validation happens in the column, so nothing
-here serialises anything -- a message goes in and a message comes back.
-
-The store keeps everything, including the messages of a run that died: that is the audit
-record. Deciding what the *model* sees is a different job, and it lives in `history.py`.
+This keeps everything, including a run that died -- it is the audit record. What the *model*
+sees is `history.py`'s job. DESIGN §10.
 """
 
 from __future__ import annotations

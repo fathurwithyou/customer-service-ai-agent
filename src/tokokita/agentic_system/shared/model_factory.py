@@ -1,9 +1,7 @@
 """Build the chat model. One seam, so swapping provider is a change here and nowhere else.
 
-The result is a `FallbackModel`: the configured model first, then the others in order, tried on
-`ModelAPIError` -- which `ModelHTTPError` subclasses, so a Groq 429 or 5xx moves to the next
-model instead of ending the turn. Groq's free tier is a daily token budget, and the model that
-runs out is not the account.
+A `FallbackModel`: configured model first, then the rest on `ModelAPIError`, which
+`ModelHTTPError` subclasses -- so a Groq 429 moves on instead of ending the turn.
 """
 
 from __future__ import annotations
