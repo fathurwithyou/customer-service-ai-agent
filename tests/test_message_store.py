@@ -93,3 +93,4 @@ async def test_system_prompts_are_not_stored(session: AsyncSession) -> None:
         )
     )
     assert [type(p).__name__ for p in payload.parts] == ["UserPromptPart"]
+
