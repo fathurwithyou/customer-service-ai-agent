@@ -7,6 +7,8 @@ FastAPI + Pydantic AI (Groq) + Pydantic v2, traced into Logfire and Arize Phoeni
 The agent answers in Indonesian, grounds every factual claim in a tool call, and refuses to
 open a customer's data before that customer has been identified.
 
+- **[`docs/PRINCIPLES.md`](docs/PRINCIPLES.md)** — the engineering principles this
+  codebase is held to: abstraction, SOLID, DRY, and the drift checklist.
 - **[`docs/STACK_NOTES.md`](docs/STACK_NOTES.md)** — the Step 0 research: verified versions and
   API signatures, and the tool-vs-capability-vs-MCP-vs-sub-agent decision framework.
 
