@@ -1,4 +1,4 @@
-"""Stream a turn as server-sent events.
+"""The same turn as server-sent events.
 
 Deltas are coalesced to words: character-level deltas flicker. The outcome is only known once
 the run is over, so it arrives in a final `done` event.
@@ -13,11 +13,11 @@ import logfire
 from pydantic_ai import Agent, AgentRunResultEvent, capture_run_messages
 from pydantic_ai.messages import FunctionToolCallEvent, PartDeltaEvent, TextPartDelta
 
-from ...shared import telemetry
 from ...shared.database import Sessions, session_scope
 from ...shared.settings import Settings
 from .deps import SupportDeps
-from .runner import FALLBACK, finish, prepare, run_args, salvage
+from .intake import Intake
+from .output import FALLBACK
 
 
 def event(name: str, data: dict) -> str:
@@ -35,24 +35,18 @@ async def stream_turn(
     activity: dict[str, str],
 ) -> AsyncIterator[str]:
     async with session_scope(sessions) as session:
-        intake = await prepare(
+        intake = await Intake.prepare(
             session, session_id=session_id, message=message, customer_hint=customer_hint
         )
-        customer = intake.deps.customer
+        customer = intake.customer
         yield event("start", {"customer_name": customer.full_name if customer else None})
 
         with logfire.span("chat turn") as span, capture_run_messages() as captured:
-            telemetry.describe_turn(
-                session_id=session_id,
-                customer_id=customer.customer_id if customer else None,
-                message=message,
-                signals=intake.deps.escalation_signals,
-                model=settings.model_name,
-            )
+            intake.describe(settings)
             held = ""
             try:
                 async with agent.run_stream_events(
-                    message, **run_args(intake, session_id=session_id, settings=settings)
+                    message, **intake.run_args(settings)
                 ) as events:
                     async for item in events:
                         if isinstance(item, FunctionToolCallEvent):
@@ -71,10 +65,10 @@ async def stream_turn(
                     yield event("delta", {"text": held})
             except Exception:  # noqa: BLE001
                 span.set_attribute("failed", True)
-                await salvage(intake, captured, session_id)
+                await intake.salvage(captured)
                 yield event("delta", {"text": FALLBACK.message})
                 yield event("done", FALLBACK.model_dump())
                 return
 
-        reply = await finish(intake, result, session_id=session_id, message=message)
+        reply = await intake.finish(result)
         yield event("done", reply.model_dump())

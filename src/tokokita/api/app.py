@@ -19,8 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..agentic_system.agents.support.agent import TOOL_ACTIVITY, build_agent
 from ..agentic_system.agents.support.deps import SupportDeps
+from ..agentic_system.agents.support.intake import resolve_customer
 from ..agentic_system.agents.support.output import AgentReply
-from ..agentic_system.agents.support.runner import resolve_customer, run_turn
+from ..agentic_system.agents.support.runner import run_turn
 from ..agentic_system.agents.support.streaming import stream_turn
 from ..agentic_system.capabilities.orders.schemas import OrderDetail
 from ..agentic_system.capabilities.orders.services import OrderService

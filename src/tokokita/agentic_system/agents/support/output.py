@@ -12,3 +12,12 @@ class AgentReply(BaseModel):
     customer_name: str | None = None
     escalated: bool = False
     ticket_id: int | None = None
+
+
+FALLBACK = AgentReply(
+    message=(
+        "Maaf, sistem kami sedang bermasalah sehingga saya belum bisa memeriksa data Anda. "
+        "Silakan coba lagi sebentar lagi, atau balas 'hubungkan ke agen' supaya tim kami yang "
+        "menindaklanjuti langsung."
+    )
+)
