@@ -102,13 +102,22 @@ def describe_turn(
 
 
 def record_answer(
-    reply_text: str, *, escalated: bool, ticket_id: int | None, usage: RunUsage | None = None
+    reply_text: str,
+    *,
+    escalated: bool,
+    ticket_id: int | None,
+    usage: RunUsage | None = None,
+    model: str | None = None,
 ) -> None:
     # OpenInference names, not ours: those are what Phoenix aggregates and prices.
     span = otel_trace.get_current_span()
     span.set_attribute(SpanAttributes.OUTPUT_VALUE, reply_text)
     span.set_attribute(SpanAttributes.OUTPUT_MIME_TYPE, "text/plain")
     span.set_attribute("escalated", escalated)
+    if model is not None:
+        # The model that *answered*, which is not the configured one once a fallback ran. The
+        # span would otherwise report an intent as a fact.
+        span.set_attribute(SpanAttributes.LLM_MODEL_NAME, model)
     if ticket_id is not None:
         span.set_attribute("ticket_id", ticket_id)
     if usage is not None:

@@ -1,37 +1,57 @@
-"""Build the chat model. One seam, so swapping provider is a change here and nowhere else."""
+"""Build the chat model. One seam, so swapping provider is a change here and nowhere else.
+
+The result is a `FallbackModel`: the configured model first, then the others in order, tried on
+`ModelAPIError` -- which `ModelHTTPError` subclasses, so a Groq 429 or 5xx moves to the next
+model instead of ending the turn. Groq's free tier is a daily token budget, and the model that
+runs out is not the account.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
 from groq import AsyncGroq
+from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.groq import GroqModel, GroqModelSettings
 from pydantic_ai.providers.groq import GroqProvider
 
 from .settings import Settings
+
+# Measured, not assumed: Groq answers 400 `reasoning_format is not supported with this model`
+# for these families. One global setting would make every llama fallback fail on its first
+# request -- exactly when the fallback is the thing being relied on.
+REJECTS_REASONING_FORMAT = ("llama-3.1", "llama-3.3")
+
+
+def model_settings(model_name: str, settings: Settings) -> GroqModelSettings:
+    # No overlap: every tool in a turn shares one AsyncSession, which is not concurrency-safe.
+    values = GroqModelSettings(parallel_tool_calls=False)
+    # reasoning_format keeps a thinking model's analysis out of the text channel, where it never
+    # parses as a tool call. GroqModel is chosen because this knob is typed here.
+    if settings.reasoning_format and not model_name.startswith(REJECTS_REASONING_FORMAT):
+        values["groq_reasoning_format"] = settings.reasoning_format
+    return values
 
 
 def build_model(settings: Settings) -> Any:
     if settings.groq_api_key is None:
         return "test"
 
-    # No overlap: every tool in a turn shares one AsyncSession, which is not concurrency-safe.
-    # reasoning_format keeps a thinking model's analysis out of the text channel, where it
-    # never parses as a tool call. GroqModel is chosen because this knob is typed here.
-    model_settings = GroqModelSettings(parallel_tool_calls=False)
-    if settings.reasoning_format:
-        model_settings["groq_reasoning_format"] = settings.reasoning_format
-
     # The SDK's own retry: raising from a custom transport hides the response, so a 429
     # surfaces as "Connection error". AsyncGroq honours Retry-After and maps it properly.
-    return GroqModel(
+    # One client for the whole chain, so they share a connection pool.
+    provider = GroqProvider(
+        groq_client=AsyncGroq(
+            api_key=settings.groq_api_key.get_secret_value(),
+            max_retries=settings.http_retries,
+            timeout=settings.request_timeout,
+        )
+    )
+    chain = [
         settings.model_name,
-        provider=GroqProvider(
-            groq_client=AsyncGroq(
-                api_key=settings.groq_api_key.get_secret_value(),
-                max_retries=settings.http_retries,
-                timeout=settings.request_timeout,
-            )
-        ),
-        settings=model_settings,
+        *(name for name in settings.fallback_models if name != settings.model_name),
+    ]
+    return FallbackModel(
+        *(GroqModel(name, provider=provider, settings=model_settings(name, settings))
+          for name in chain)
     )

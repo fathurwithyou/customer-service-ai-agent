@@ -21,7 +21,9 @@ from tokokita.agentic_system.capabilities.returns.schemas import ReturnRequest
 from tokokita.agentic_system.capabilities.returns.services import ReturnService
 from tokokita.agentic_system.capabilities.tickets.schemas import TicketCategory, TicketPriority
 from tokokita.agentic_system.capabilities.tickets.services import TicketService
+from tokokita.agentic_system.shared.model_factory import build_model, model_settings
 from tokokita.agentic_system.shared.results import ActionResult, ResultCode
+from tokokita.agentic_system.shared.settings import Settings
 from tokokita.data import tables
 
 pytestmark = pytest.mark.anyio
@@ -182,3 +184,32 @@ async def returns_on(session: AsyncSession, order_id: int) -> int:
     return await session.scalar(
         select(func.count()).select_from(tables.Return).where(tables.Return.order_id == order_id)
     )
+
+
+def test_llama_fallbacks_are_not_sent_reasoning_format() -> None:
+    """Measured against the live API: Groq answers 400 for these families. One global setting
+    would make every llama fallback fail on its first request -- when it is the last resort.
+    """
+    settings = Settings(reasoning_format="parsed")
+
+    assert "groq_reasoning_format" in model_settings("openai/gpt-oss-20b", settings)
+    assert "groq_reasoning_format" in model_settings("qwen/qwen3.6-27b", settings)
+    assert "groq_reasoning_format" not in model_settings("llama-3.3-70b-versatile", settings)
+    assert "groq_reasoning_format" not in model_settings("llama-3.1-8b-instant", settings)
+
+
+def test_no_llama_in_the_fallback_chain() -> None:
+    """llama-3.3 writes `<function=...>` into the text channel instead of calling a tool, and
+    Groq sometimes returns that as content rather than an error -- so it raises nothing and a
+    fallback chain cannot see it. Measured 0/3 grounded; kept out deliberately.
+    """
+    assert not [m for m in Settings().fallback_models if m.startswith("llama")]
+
+
+def test_the_configured_model_leads_the_chain_and_is_not_repeated() -> None:
+    settings = Settings(
+        groq_api_key="sk-test", fallback_models=["a", "qwen/qwen3.6-27b", "b"],
+        model_name="qwen/qwen3.6-27b",
+    )
+    chain = [m.model_name for m in build_model(settings).models]
+    assert chain == ["qwen/qwen3.6-27b", "a", "b"]

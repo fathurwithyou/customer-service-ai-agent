@@ -48,7 +48,8 @@ All are optional except the Groq key, and all are prefixed `TOKOKITA_`.
 | Variable | Default | What it does |
 |---|---|---|
 | `TOKOKITA_GROQ_API_KEY` | — | Groq API key. Unset ⇒ keyless `test` model. |
-| `TOKOKITA_MODEL_NAME` | `openai/gpt-oss-20b` | Any Groq model id. |
+| `TOKOKITA_MODEL_NAME` | `openai/gpt-oss-120b` | Any Groq model id. Tried first. |
+| `TOKOKITA_FALLBACK_MODELS` | `["qwen/qwen3.6-27b","openai/gpt-oss-20b"]` | Tried in order when the one above fails with a model-side error (429, 5xx, a provider 400). JSON list; empty disables the chain. |
 | `TOKOKITA_REASONING_FORMAT` | `parsed` | `parsed` \| `hidden` \| `raw`. `parsed` gives the reasoning its own field, which becomes a `ThinkingPart`; `hidden` only suppresses it, and the model still writes analysis into the text channel where a tool call then fails to parse. Leave **empty** for a non-reasoning model, which would reject the parameter. |
 | `TOKOKITA_DATABASE_URL` | `postgresql+asyncpg://tokokita:tokokita@localhost:5433/tokokita` | Port 5433, not 5432: a locally installed Postgres commonly holds 5432 and would shadow the container. |
 | `TOKOKITA_PHOENIX_ENDPOINT` | `http://localhost:6006` | Empty string disables the Phoenix exporter. |

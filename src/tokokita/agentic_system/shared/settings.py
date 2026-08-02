@@ -12,7 +12,25 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TOKOKITA_", env_file=".env", extra="ignore")
 
     # Any Groq model id. No key falls back to the keyless `test` model, so the service boots.
-    model_name: str = "openai/gpt-oss-20b"
+    model_name: str = "openai/gpt-oss-120b"
+
+    # Tried in order after `model_name`, on a model-side failure. Ordered by measurement, not by
+    # size: three runs each of "Pesanan 1 saya statusnya apa?" as a verified customer, scored on
+    # whether the reply called a tool and quoted that order's real resi.
+    #
+    #   openai/gpt-oss-120b       3/3
+    #   qwen/qwen3.6-27b          3/3
+    #   openai/gpt-oss-20b        2/3   the previous default
+    #   llama-3.1-8b-instant      1/3   excluded
+    #   llama-3.3-70b-versatile   0/3   excluded -- see below
+    #
+    # The llama models are left out on purpose. 3.3 never emits a tool call with this tool
+    # surface: it writes `<function=get_order_detail{...}</function>` into the text channel, so
+    # the customer is handed protocol noise as an answer. Groq sometimes rejects that as
+    # `tool_use_failed` (400) and sometimes returns it as content -- and the second case raises
+    # nothing, which a fallback chain cannot see. A model that fails loudly is recoverable; one
+    # that answers confidently and wrongly is not.
+    fallback_models: list[str] = ["qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
     groq_api_key: SecretStr | None = None
 
     # Room to recover from a stale order id, not enough for a runaway loop.

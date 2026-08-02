@@ -124,7 +124,11 @@ async def finish(intake: Intake, result, *, session_id: str, message: str) -> Ag
         ticket_id=ticket_id,
     )
     telemetry.record_answer(
-        reply.message, escalated=escalated, ticket_id=ticket_id, usage=result.usage
+        reply.message,
+        escalated=escalated,
+        ticket_id=ticket_id,
+        usage=result.usage,
+        model=result.response.model_name,
     )
     await intake.store.append(session_id, result.new_messages())
     if intake.deps.customer is not None:
