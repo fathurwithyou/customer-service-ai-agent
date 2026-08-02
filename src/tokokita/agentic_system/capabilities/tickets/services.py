@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from ...shared.database import Database
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ....data import tables
 from .schemas import Ticket, TicketCategory, TicketPriority
 
 
 class TicketService:
-    def __init__(self, db: Database) -> None:
-        self._db = db
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
 
     async def open(
         self,
@@ -17,11 +20,17 @@ class TicketService:
         priority: TicketPriority,
         subject: str,
     ) -> Ticket:
-        ticket_id = await self._db.insert_ticket(
-            customer_id, order_id, category.value, priority.value, subject
+        row = tables.Ticket(
+            customer_id=customer_id,
+            order_id=order_id,
+            category=category.value,
+            priority=priority.value,
+            subject=subject,
         )
+        self._session.add(row)
+        await self._session.commit()
         return Ticket(
-            ticket_id=ticket_id,
+            ticket_id=row.ticket_id,
             order_id=order_id,
             category=category,
             priority=priority,
@@ -29,11 +38,32 @@ class TicketService:
         )
 
     async def escalate(self, ticket_id: int, customer_id: int) -> bool:
-        return await self._db.mark_ticket_escalated(ticket_id, customer_id)
+        result = await self._session.execute(
+            update(tables.Ticket)
+            .where(
+                tables.Ticket.ticket_id == ticket_id,
+                tables.Ticket.customer_id == customer_id,
+            )
+            .values(status="escalated", priority="urgent")
+        )
+        await self._session.commit()
+        return result.rowcount > 0
 
     async def record_turn(self, customer_id: int, ticket_id: int | None, *texts: str) -> None:
-        ticket_id = ticket_id or await self._db.open_ticket_id(customer_id)
+        if ticket_id is None:
+            ticket_id = await self._session.scalar(
+                select(tables.Ticket.ticket_id)
+                .where(
+                    tables.Ticket.customer_id == customer_id,
+                    tables.Ticket.status.in_(("open", "pending", "escalated")),
+                )
+                .order_by(tables.Ticket.ticket_id.desc())
+                .limit(1)
+            )
         if ticket_id is None:
             return
         for sender, text in zip(("customer", "ai"), texts, strict=False):
-            await self._db.insert_ticket_message(ticket_id, sender, text)
+            self._session.add(
+                tables.TicketMessage(ticket_id=ticket_id, sender=sender, message=text)
+            )
+        await self._session.commit()
