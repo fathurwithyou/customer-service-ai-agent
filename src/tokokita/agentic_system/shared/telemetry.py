@@ -43,6 +43,25 @@ class ToolCallInput(SpanProcessor):
         span._attributes = kept
 
 
+class LabelHttpSpans(SpanProcessor):
+    """Phoenix draws its icons from `openinference.span.kind`, so HTTP spans arrive iconless.
+    CHAIN is OpenInference's generic step, which is what both of these are.
+
+    Client spans are also renamed: the SDK retries a 429 itself, so a bare "POST" hides the
+    only place those retries are visible.
+    """
+
+    def on_end(self, span: ReadableSpan) -> None:
+        attributes = dict(span.attributes or {})
+        if SpanAttributes.OPENINFERENCE_SPAN_KIND in attributes or "http.method" not in attributes:
+            return
+        attributes[SpanAttributes.OPENINFERENCE_SPAN_KIND] = OpenInferenceSpanKindValues.CHAIN.value
+        span._attributes = attributes
+        if "http.route" not in attributes:
+            host = str(attributes.get("http.url", "")).split("/")[2:3]
+            span._name = f"{attributes['http.method']} {host[0] if host else '?'} {attributes.get('http.status_code', '')}".strip()
+
+
 def describe_turn(
     *,
     session_id: str,
@@ -105,7 +124,12 @@ def span_processors(settings: Settings) -> list[SpanProcessor]:
     if not settings.phoenix_endpoint:
         return []
     exporter = OTLPSpanExporter(endpoint=f"{settings.phoenix_endpoint.rstrip('/')}/v1/traces")
-    return [OpenInferenceSpanProcessor(), ToolCallInput(), BatchSpanProcessor(exporter)]
+    return [
+        OpenInferenceSpanProcessor(),
+        ToolCallInput(),
+        LabelHttpSpans(),
+        BatchSpanProcessor(exporter),
+    ]
 
 
 def keep_session_id(match: logfire.ScrubMatch) -> str | None:
