@@ -19,8 +19,8 @@ was real and re-doing it would cost the same day twice.
 | `pydantic-settings` | **2.14.2** | |
 | `fastapi[standard]` | **0.141.1** | Starlette 1.3.1, uvicorn 0.52.0. |
 | `logfire[fastapi]` | **4.39.0** | ⟲ the extra is now `logfire[fastapi,httpx,sqlalchemy]` — `instrument_httpx` and `instrument_sqlalchemy` earn their place, `instrument_sqlite3` did not (§8). |
-| `arize-phoenix-otel` | **0.16.1** | Only the client; the server runs in Docker. |
 | `openinference-instrumentation-pydantic-ai` | **0.1.18** | |
+| ~~`arize-phoenix-otel`~~ | — | ⟲ removed: never imported. Spans leave through opentelemetry's OTLP exporter; the package only offered `register()`, which would seize the tracer provider Logfire also reads from. |
 | `asyncpg` | 0.31.1 | ⟲ replaced `aiosqlite`. The driver, never imported by our code. |
 | `sqlalchemy[asyncio]` | 2.0.51 | ⟲ added late; it replaced a hand-rolled `Database` class. |
 | `groq` | 1.6.0 | Transitive via the `[groq]` extra. |
@@ -408,9 +408,18 @@ logfire.instrument_sqlite3(conn=None)
 logfire.instrument_sqlalchemy(engine=None)
 ```
 
-`instrument_sqlalchemy()` is enabled and verified: `connect` and `SELECT ...` spans, checked
-against an `InMemorySpanExporter` before being wired in — given the history below, measuring
-first was the point.
+`instrument_sqlalchemy(engine=engine)` is enabled — **with the engine**. The argument-less form
+patches connection setup only: measured against the running application, 8 `connect` spans and
+zero queries.
+
+| call | spans |
+|---|---|
+| `instrument_sqlalchemy()` | `connect` |
+| `instrument_sqlalchemy(engine=e)` | `connect`, `SELECT` |
+| `instrument_sqlalchemy(engine=e.sync_engine)` | `connect`, `SELECT` |
+
+It is called from the lifespan rather than from `setup_observability`, because that is the only
+place the engine exists.
 
 ⟲ `instrument_sqlite3` was wired up and removed while the database was still SQLite: it emitted
 **zero spans** — none for `aiosqlite`, which runs `sqlite3` on a worker thread, and none for

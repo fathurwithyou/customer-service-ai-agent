@@ -1508,6 +1508,24 @@ Each was caught by a five-line script or a failing test. Each would otherwise ha
 confident paragraph describing something that never happened — the worst outcome, because **a
 design note asserting behaviour you did not observe stops the next person from checking.**
 
+### Verify the configuration you shipped, not the one you tested
+
+The subtler failure, and this project made it. A database instrumentor was verified in isolation
+and did emit `connect` and `SELECT` spans — then it was wired into the application in a different
+form, argument-less, where it emits `connect` and nothing else.
+
+```
+instrument_sqlalchemy()               ->  connect
+instrument_sqlalchemy(engine=engine)  ->  connect, SELECT
+```
+
+The note in the design document was true of the experiment and false of the deployment. Nobody
+noticed for days, because `connect` spans *look* like the feature working; it surfaced only when
+someone asked what `connect` was for.
+
+> **A proof-of-concept proves the mechanism, not your wiring.** Re-run the check against the
+> thing that is actually running, and prefer a check that can fail when the answer is "half".
+
 **Drift symptom.** You write "because the framework does X" without having run anything.
 
 ---
