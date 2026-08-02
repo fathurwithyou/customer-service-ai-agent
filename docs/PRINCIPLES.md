@@ -20,6 +20,70 @@ a defence against that specific failure.
 
 ---
 
+## How to use this document
+
+**You do not read this front to back.** Every section is self-contained and opens with a one-line
+**Rule**; the paragraphs under it are the evidence for that rule, not a prerequisite for using it.
+
+### The loop
+
+1. **Before writing code** — find your situation in the trigger table below and read those
+   sections' Rule lines. Thirty seconds.
+2. **While writing** — if any thought in the rationalisation table crosses your mind, stop and
+   open the section it points to. Those thoughts are the drift, caught early.
+3. **Before saying the work is done** — run [§30, the drift checklist](#30-the-drift-checklist).
+   Every item is a question with a checkable answer, not a reminder to be careful.
+
+### Trigger table — look up by situation, not by topic
+
+| You are about to… | Read |
+|---|---|
+| write against a library or API you have not used before | [§26](#26-read-the-framework-before-you-write-against-it), [§20](#20-reach-for-the-frameworks-seam-before-writing-machinery) |
+| write a class whose job is coordination — queue, registry, wrapper, manager | [§20](#20-reach-for-the-frameworks-seam-before-writing-machinery), [§1](#1-what-an-abstraction-actually-is) |
+| add a field to a model an LLM, a client, or a log will see | [§8](#8-i--narrow-interfaces-and-interfaces-as-enforcement), [§17](#17-derive-dont-restate), [§19](#19-yagni-and-the-cost-of-a-knob) |
+| unify two pieces of code that look alike | [§10](#10-dry-is-about-knowledge-not-text), [§11](#11-the-wrong-dry-coupling-things-that-merely-rhyme) |
+| add a parameter, a flag, or a setting | [§19](#19-yagni-and-the-cost-of-a-knob), [§6](#6-o--open-for-extension-closed-for-modification) |
+| split a module, or move something between modules | [§5](#5-s--one-reason-to-change), [§12](#12-coupling-is-the-cost-of-every-change) |
+| write a function whose first argument is an object | [§13](#13-tell-dont-ask), [§21](#21-helpers-and-the-ones-that-want-to-be-methods) |
+| design an error path, a retry, or a fallback | [§16](#16-errors-have-three-shapes), [§18](#18-own-your-resources-explicitly) |
+| open a connection, a session, or a stream | [§18](#18-own-your-resources-explicitly) |
+| delete something that looks unused | [§22](#22-delete-what-nothing-calls--after-checking-who-calls) |
+| name a file, a class, or a variable | [§23](#23-naming-one-name-one-meaning) |
+| write a comment or a docstring | [§24](#24-comments-carry-four-things-and-nothing-else) |
+| claim one option is better than another | [§28](#28-measure-before-you-order-things), [§27](#27-verify-against-the-installed-version) |
+| reverse a decision made earlier | [§25](#25-record-reversals-and-costs-not-just-decisions), [§15](#15-make-illegal-states-unrepresentable) |
+| write a test | [§29](#29-tests-are-design-feedback-not-a-chore), [§7](#7-l--substitutability-is-what-makes-tests-possible) |
+| declare the work finished | [§30](#30-the-drift-checklist) |
+
+### Rationalisation table — thoughts that mean stop
+
+Each of these was thought, sincerely, while building this repository. Each was wrong.
+
+| The thought | What is actually true |
+|---|---|
+| "I'll write a small wrapper so this is easier to use." | The library probably shipped the seam. List its public surface first. [§20](#20-reach-for-the-frameworks-seam-before-writing-machinery) |
+| "The docs say it behaves like this." | The installed version is the only authority. Run five lines. [§27](#27-verify-against-the-installed-version) |
+| "These two look the same — I'll unify them." | Similar shape is not shared knowledge. Ask what each would change *for*. [§11](#11-the-wrong-dry-coupling-things-that-merely-rhyme) |
+| "I'll add the field now, it will probably be needed." | It is prompt weight, or PII in a trace, or a second source of truth. [§19](#19-yagni-and-the-cost-of-a-knob) |
+| "This docstring explains my reasoning nicely." | Being pleased with it is the signal it was written for an audience that admires reasoning. [§24](#24-comments-carry-four-things-and-nothing-else) |
+| "The scan says this symbol is unused." | Data, LLM tool schemas and framework reflection are callers too. [§22](#22-delete-what-nothing-calls--after-checking-who-calls) |
+| "I'll add a flag so the tests can swap this out." | The framework has a test seam. Yours leaks into production. [§7](#7-l--substitutability-is-what-makes-tests-possible) |
+| "A fallback will cover that failure." | Only failures that *raise*. Name the one it cannot see. [§16](#16-errors-have-three-shapes) |
+| "This model / library / approach is better." | Better by which measurement? Numbers, or say it is a guess. [§28](#28-measure-before-you-order-things) |
+| "It works and the tests pass." | Working is not the bar. Would someone who knows the library recognise this? [§20](#20-reach-for-the-frameworks-seam-before-writing-machinery) |
+| "I'll mention the trade-off in the summary." | Write it where it will be felt, not where it will be skimmed. [§25](#25-record-reversals-and-costs-not-just-decisions) |
+| "I'll explain this properly in the docstring, the commit, and the design doc." | Three copies of one explanation rot apart. One job each. [§24](#24-comments-carry-four-things-and-nothing-else) |
+| "This is a big refactor, I'll verify at the end." | Verify each step. A broken chain of six changes has six suspects. [§29](#29-tests-are-design-feedback-not-a-chore) |
+
+### If you read only one thing
+
+> **Working is not the bar.** Code that passes its tests can still be a private interface over a
+> public one, a second source of truth, a fallback blind to its own failure mode, or an
+> explanation that will rot. The bar is that someone who knows this stack reads your change and
+> recognises it.
+
+---
+
 ## Contents
 
 **Part I — Abstraction**
@@ -62,18 +126,20 @@ a defence against that specific failure.
 25. [Record reversals and costs, not just decisions](#25-record-reversals-and-costs-not-just-decisions)
 
 **Part VIII — Evidence**
-26. [Verify against the installed version](#26-verify-against-the-installed-version)
-27. [Measure before you order things](#27-measure-before-you-order-things)
-28. [Tests are design feedback, not a chore](#28-tests-are-design-feedback-not-a-chore)
+27. [Verify against the installed version](#27-verify-against-the-installed-version)
+28. [Measure before you order things](#28-measure-before-you-order-things)
+29. [Tests are design feedback, not a chore](#29-tests-are-design-feedback-not-a-chore)
 
 **Closing**
-29. [The drift checklist](#29-the-drift-checklist)
+30. [The drift checklist](#30-the-drift-checklist)
 
 ---
 
 # Part I — Abstraction
 
 ## 1. What an abstraction actually is
+
+> **Rule.** An abstraction hides a decision that changes. If you cannot name the decision it hides, you have a rename.
 
 An abstraction is **a boundary that hides a decision likely to change.** That is Parnas's
 definition from 1972 and nothing better has replaced it. Note what it is *not*: it is not a layer,
@@ -100,6 +166,8 @@ Shortening is what functions do. Forgetting is what abstractions do.
 ---
 
 ## 2. Why Pydantic's abstraction is good, in detail
+
+> **Rule.** Study the frameworks that got it right. Their choices are copyable, and Pydantic makes more of them than most.
 
 Pydantic is worth studying closely because it makes an unusually large set of correct choices,
 and each one is copyable.
@@ -244,6 +312,8 @@ characters.** The word "JSON" no longer appears above the column.
 
 ## 3. Leaky, premature, and one-implementation abstractions
 
+> **Rule.** Never abstract over one case. Never ship a boundary that callers must see through.
+
 Three failure modes, each with a tell.
 
 ### Leaky: callers must know what is behind it
@@ -291,6 +361,8 @@ have grown into it.
 
 ## 4. Parse, don't validate
 
+> **Rule.** Turn untrusted data into a narrower type at the boundary, then trust the type. Do not re-check downstream.
+
 A principle worth naming explicitly, because Pydantic is its clearest mainstream implementation.
 
 **Validation** checks data and returns a boolean or throws; the data keeps its original loose
@@ -335,6 +407,8 @@ SOLID is often taught as five rules about classes. It is more useful as five que
 **where change lands**.
 
 ## 5. S — One reason to change
+
+> **Rule.** A module should have one audience whose decisions it serves. If you describe it with "and", split it.
 
 The Single Responsibility Principle is not "a class does one thing". Almost everything does one
 thing at some level of description. Uncle Bob's sharper form is what to use:
@@ -390,6 +464,8 @@ the reply *and* records telemetry *and* persists".
 
 ## 6. O — Open for extension, closed for modification
 
+> **Rule.** Adding a case must not require editing code that already works. Default to fail-closed.
+
 You should be able to add behaviour without editing existing code. The mechanism matters less
 than the property: **new cases must not require touching the switch statement that everyone
 depends on.**
@@ -433,6 +509,8 @@ also live in.
 
 ## 7. L — Substitutability is what makes tests possible
 
+> **Rule.** Subtypes must be substitutable. This is the property your entire test suite rests on.
+
 Liskov substitution sounds academic until you notice that it is the property your entire test
 suite rests on.
 
@@ -467,6 +545,8 @@ polymorphic call site back into a conditional.
 ---
 
 ## 8. I — Narrow interfaces, and interfaces as enforcement
+
+> **Rule.** Hand each caller the smallest surface that does its job. What a type omits is enforcement.
 
 Interface Segregation says clients should not depend on methods they do not use. Its practical
 form: **hand each caller the smallest surface that does its job.**
@@ -512,6 +592,8 @@ the contact used to look them up.
 ---
 
 ## 9. D — Depend on abstractions, inject the concrete
+
+> **Rule.** Name the shape you need; let the composition root pick the concrete thing. Never reach for a global.
 
 High-level policy should not import low-level detail. In practice this means: **a module names
 the shape it needs; someone else decides which concrete thing satisfies it.**
@@ -571,6 +653,8 @@ if sessions is not None:  # injected pool belongs to the caller; only ours gets 
 
 ## 10. DRY is about knowledge, not text
 
+> **Rule.** One piece of knowledge, one representation. Ask: if this changes, must the other change for the same reason?
+
 The original formulation is precise and usually misquoted:
 
 > Every piece of **knowledge** must have a single, unambiguous, authoritative representation
@@ -628,6 +712,8 @@ a hundred repeated lines.
 
 ## 11. The wrong DRY: coupling things that merely rhyme
 
+> **Rule.** Prefer duplication over the wrong abstraction. Similar shape is not shared knowledge.
+
 Applied to text rather than knowledge, DRY does harm. Two pieces of code that look alike but
 change for different reasons must stay apart; unifying them creates a coupling that later forces
 a parameter, then a flag, then a branch — the classic decay of a "shared" helper into a
@@ -667,6 +753,8 @@ aesthetic. Ask what each would change *for* before touching either.
 # Part IV — Coupling and cohesion
 
 ## 12. Coupling is the cost of every change
+
+> **Rule.** Count the symbols one module imports from another. A high count means the boundary is in the wrong place.
 
 Cohesion is how strongly the parts inside a module belong together. Coupling is how much a module
 depends on what is outside it. **Design is largely the business of maximising the first and
@@ -716,6 +804,8 @@ def customer(self) -> Customer | None:
 
 ## 13. Tell, don't ask
 
+> **Rule.** If a function's first parameter is an object and its other parameters are that object's fields, it is a method.
+
 Prefer telling an object to do something over asking for its data and doing it yourself. The
 signature tells you when you have got it backwards.
 
@@ -741,6 +831,8 @@ fields of that object, it is a method.
 ---
 
 ## 14. Composition over inheritance
+
+> **Rule.** Assemble behaviour from lists. Inherit at most one policy, never a bag of helpers.
 
 Inheritance couples you to a hierarchy that must be right up front. Composition lets behaviour
 be assembled per case. Prefer composition unless there is a genuine is-a relationship *and*
@@ -775,6 +867,8 @@ pretending to be a parameter list.
 # Part V — Design in the small
 
 ## 15. Make illegal states unrepresentable
+
+> **Rule.** Make the wrong thing impossible. If you drop to convention, say so and add a test that fails when it breaks.
 
 The strongest guarantee is one where the wrong thing cannot be expressed. Ranked by strength:
 
@@ -813,6 +907,8 @@ instead of a `dict` with a `type` key; a `Decision` object instead of `(bool, st
 ---
 
 ## 16. Errors have three shapes
+
+> **Rule.** Refusal is a typed result. A recoverable mistake is a retry. Infrastructure failure is caught and degraded.
 
 Not everything that goes wrong is an exception. Three kinds, three mechanisms:
 
@@ -882,6 +978,8 @@ noise as an answer.
 
 ## 17. Derive, don't restate
 
+> **Rule.** Prefer a fact the system already holds over the same fact reported by something else.
+
 Prefer a fact the system already holds over the same fact reported by something else. A
 restatement can disagree; a derivation cannot.
 
@@ -912,6 +1010,8 @@ downstream could look.
 ---
 
 ## 18. Own your resources explicitly
+
+> **Rule.** Say who creates the resource, who closes it, and what it is bound to. All three, in one sentence each.
 
 Say who creates a resource, who closes it, and what it is bound to. Most async and lifecycle bugs
 are one of those three left implicit.
@@ -963,6 +1063,8 @@ async def session_scope(factory: Sessions) -> AsyncIterator[AsyncSession]:
 
 ## 19. YAGNI, and the cost of a knob
 
+> **Rule.** Every field, layer, setting and dependency must name a failure it prevents. If it cannot, delete it.
+
 You Aren't Gonna Need It. Speculative flexibility is paid for on every read, by everyone, forever
 — and the future rarely arrives in the shape you guessed.
 
@@ -999,6 +1101,8 @@ exist. **A setting whose other position is always wrong is not configuration, it
 ---
 
 ## 20. Reach for the framework's seam before writing machinery
+
+> **Rule.** Read the library's public surface before writing coordination machinery. The undo you need probably shipped with it.
 
 Read the library's public surface once — `dir(Agent)` takes thirty seconds — and ask of each
 entry: *what problem was this added to solve, and is one of them mine?*
@@ -1044,6 +1148,8 @@ registry, a wrapper, a manager.
 
 ## 21. Helpers, and the ones that want to be methods
 
+> **Rule.** A helper used once is usually worse than the code inlined. One function, one meaning.
+
 A helper used exactly once is usually worse than the code inlined: it adds a name to learn and a
 jump to follow. Extract when the code is used more than once, or when the extraction genuinely
 *names a concept the reader needs*.
@@ -1065,6 +1171,8 @@ fields, is a method that has not been moved yet.
 ---
 
 ## 22. Delete what nothing calls — after checking who calls
+
+> **Rule.** Before deleting, check four callers: code, data, consumers you do not compile, and the framework calling by name.
 
 Deleted from this repository: a `Decision.as_result()` with no caller, and an
 `ActionResult.success` property read only by tests that asserted the property existed — a test of
@@ -1101,6 +1209,8 @@ this program.
 
 ## 23. Naming: one name, one meaning
 
+> **Rule.** A name is chosen against every other use of that word in the system, not against its own module.
+
 A name is chosen against every other use of that word in the system, not against its own module.
 
 Two classes named `Turn` existed here at once: one an exchange in a transcript (`role`, `text`,
@@ -1132,6 +1242,8 @@ instead of asking which meaning owns the root word.
 ---
 
 ## 24. Comments carry four things and nothing else
+
+> **Rule.** A comment carries a rationale, an invariant, a trade-off, or a boundary contract. Otherwise delete it.
 
 A comment earns its place by carrying a **rationale**, an **invariant**, a **trade-off**, or a
 **contract at a boundary**. Anything else is noise, and noise is not neutral: it dilutes the
@@ -1196,6 +1308,8 @@ change the line below it.
 
 ## 25. Record reversals and costs, not just decisions
 
+> **Rule.** Record why the old argument was wrong, and what the new decision costs. Not just what you chose.
+
 When you reverse a decision, the valuable part is not the new choice. It is **why the original
 argument failed** — because that argument will be made again, by someone reasonable, possibly by
 you.
@@ -1221,7 +1335,148 @@ months later, as a decision with no downside — and nobody revisits those.
 
 # Part VIII — Evidence
 
-## 26. Verify against the installed version
+## 26. Read the framework before you write against it
+
+> **Rule.** Before writing against an unfamiliar API, list its public surface and read the code that reads your code.
+
+Most of the good decisions in this repository came from twenty minutes of reading a library, and
+most of the bad ones came from skipping it. Reading a framework is a skill with a procedure, not
+a vague virtue. It serves two purposes at once: it is how you find the seam you should be using
+(§20), and it is how you learn to *design* like the libraries that got it right (§2).
+
+Do this **before** writing the first line against an unfamiliar API, not after the first bug.
+
+### The procedure
+
+**1. Inventory the public surface.** One screen, thirty seconds, and it is the step people skip.
+
+```python
+import inspect
+from pydantic_ai import Agent
+
+for n in [n for n in dir(Agent) if not n.startswith("_")]:
+    doc = (inspect.getdoc(getattr(Agent, n)) or "").split("\n")[0][:95]
+    print(f"  {n:28} {doc}")
+```
+
+This is how `run_stream_events` was found — sitting in plain sight among forty members while a
+hand-rolled `asyncio.Queue` was doing its job badly one directory away. **You cannot reach for a
+seam you have never seen the name of.**
+
+**2. Read the signature before the prose.** A signature is exhaustive; documentation is a
+selection someone made for a different reader.
+
+```python
+print(inspect.signature(Agent.run))
+# ... conversation_id, run_id, model, instructions, deps, model_settings,
+#     usage_limits, usage, metadata, retries, toolsets, capabilities, ...
+```
+
+Four parameters that mattered here — `conversation_id`, `metadata`, `usage_limits`, `capabilities`
+— were adopted from reading this line.
+
+**3. Read the type hierarchy, especially for errors.** What you can catch determines what you can
+recover from.
+
+```python
+import pydantic_ai.exceptions as ex
+for n in sorted(n for n in dir(ex) if n[0].isupper()):
+    c = getattr(ex, n)
+    if isinstance(c, type):
+        print(f"{n:26} <- {', '.join(b.__name__ for b in c.__bases__)}")
+# ModelAPIError  <- AgentRunError
+# ModelHTTPError <- ModelAPIError      <- so `fallback_on=(ModelAPIError,)` covers a 429
+```
+
+**4. Grep the installed source for the *value*, not the name.** Names tell you a thing exists;
+values tell you who writes them and when.
+
+```bash
+grep -rn "'interrupted'" .venv/lib/python3.12/site-packages/pydantic_ai/
+```
+
+That one line overturned an assumption the design already rested on: the framework writes
+`interrupted` when a *tool* is cancelled, not when a model call raises. A run that crashed still
+reads `complete`.
+
+**5. Read the code that reads *your* code.** This is the highest-value step and the least
+obvious. Anywhere a framework inspects your class — reflection, hooks, registration, naming
+conventions — there is a contract that no signature states.
+
+```python
+# sqlalchemy/sql/type_api.py
+def _static_cache_key(self):
+    names = util.get_cls_kwargs(self.__class__)
+    return (self.__class__,) + tuple(
+        (k, self.__dict__[k]) for k in names
+        if k in self.__dict__ and not k.startswith("_") and self.__dict__[k] is not None
+    )
+```
+
+Reading that revealed that `cache_ok = True` was a promise this codebase was not keeping: the
+model was held as `self._adapter`, so the key collapsed and two differently-parameterised columns
+compared equal. Nothing in any signature said "store your state under the `__init__` parameter's
+own name, un-underscored".
+
+**6. Run the smallest program that shows the behaviour.** Five lines beat an hour of reasoning.
+
+```python
+r = await agent.run("halo", conversation_id="s", metadata={"customer_id": 1})
+print([m.metadata for m in r.all_messages()])   # [None, None]  <- not what the docs implied
+```
+
+**7. Ask the live service, not the documentation.** Provider capabilities drift faster than any
+page describing them.
+
+```python
+models = (await client.models.list()).data          # what this account can actually reach
+```
+
+Then probe the capability itself rather than assuming it is uniform. Sending
+`reasoning_format="parsed"` to each model in turn is how it emerged that the llama families
+answer 400 — which meant per-model settings, not one global setting that would have made every
+fallback fail on its first request.
+
+**8. Ask what the framework calls that you never call.** Route handlers, `process_bind_param`,
+`cache_ok`, `__init__` parameter names, lifecycle hooks. These are invoked by machinery, and a
+static "unused" scan will happily tell you to delete them (§23).
+
+### Reading a good framework to learn from it
+
+When the library is one worth imitating, read it a second time with different questions:
+
+- **Where is the escape hatch?** `TypeDecorator`, `__get_pydantic_core_schema__`. A framework
+  without one forces users to abandon it at the first unusual case.
+- **Where does it separate policy from shape?** `model_config` versus fields. That separation is
+  usually the axis along which its users' requirements actually move.
+- **What does it derive rather than ask for?** Pydantic derives JSON Schema, serialisation and
+  editor types from one declaration. Every artefact it derives is one your users would otherwise
+  have kept in sync by hand.
+- **What did it decide *not* to support?** The gaps are as instructive as the features, and they
+  are where its authors drew the boundary of the problem.
+
+### One honest caveat
+
+Exploration takes you into private API — `_static_cache_key`, module internals, `.venv` source.
+Understanding and verifying with them is legitimate. **Depending on them is not**, and if you
+must, pin the dependency with a test that fails loudly when the internal changes:
+
+```python
+def test_two_payload_types_do_not_share_a_cache_key() -> None:
+    assert PydanticJson(ModelMessage)._static_cache_key != PydanticJson(Other)._static_cache_key
+```
+
+That test touches a private attribute deliberately. It exists because the *public* promise —
+`cache_ok = True` — has no public way to check it.
+
+**Drift symptom.** You have written more than fifty lines against a library whose public surface
+you have never listed.
+
+---
+
+## 27. Verify against the installed version
+
+> **Rule.** Ask of every claim you are about to depend on: have I seen this happen, or do I only believe it?
 
 Before building on a behaviour, observe it in the version that is installed. Not the docs for the
 version you remember, and not your recollection of the docs.
@@ -1257,7 +1512,9 @@ design note asserting behaviour you did not observe stops the next person from c
 
 ---
 
-## 27. Measure before you order things
+## 28. Measure before you order things
+
+> **Rule.** Any ranking you write down is a claim. Produce numbers, or label it a guess.
 
 Any ranking you write down — model quality, retry counts, cache sizes, timeouts, index choices —
 is a claim. Either measure it or label it a guess.
@@ -1288,7 +1545,9 @@ print([s.name for s in exp.get_finished_spans()])
 
 ---
 
-## 28. Tests are design feedback, not a chore
+## 29. Tests are design feedback, not a chore
+
+> **Rule.** A test that is hard to write is telling you about the design. Listen before reaching for a mock.
 
 A test that is hard to write is telling you something about the design. Listen before reaching
 for a mock.
@@ -1328,7 +1587,7 @@ has.
 
 # Closing
 
-## 29. The drift checklist
+## 30. The drift checklist
 
 Run these before calling work done. Ordered by how often they catch something.
 
@@ -1339,7 +1598,7 @@ Name the decision it hides and how it might change. If you cannot, it is a renam
 Read `dir()` on the main class. Any coordination class you wrote — queue, wrapper, registry,
 manager — is a suspect.
 
-**Did I assert behaviour I did not observe?** — §26
+**Did I assert behaviour I did not observe?** — §27
 Search your diff for "because", "so that", "the framework". Each is a claim. Which did you run?
 
 **Does this module have one audience?** — §5
@@ -1364,7 +1623,7 @@ of the three are wrong.
 **Did I check all four callers before deleting?** — §22
 Code, data, unbuilt consumers, framework-by-name.
 
-**Is any ranking in this diff unmeasured?** — §27
+**Is any ranking in this diff unmeasured?** — §28
 Numbers, or an admission. Not prose.
 
 **Does any name in this diff already mean something else here?** — §23
