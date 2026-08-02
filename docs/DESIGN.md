@@ -355,10 +355,10 @@ the refund exceeds the ceiling, the order is already cancelled. These are not ex
 not be raised.
 
 - **Policy refusal → a typed result.** `ActionResult` is a `ResultCode` enum plus a human
-  `detail`, and nothing else — `success` is a property derived from `code is ResultCode.OK`
-  rather than a stored field, because two fields for one fact can disagree and then the
-  interesting question becomes which one the caller read. The model receives a fact it can
-  explain in Indonesian; the enum gives tests something exact to assert on.
+  `detail`, and nothing else. No `success` boolean beside the code: two fields for one fact can
+  disagree, and then the interesting question becomes which one the caller read. A caller that
+  wants the boolean writes `code is ResultCode.OK` where it needs it. The model receives a fact
+  it can explain in Indonesian; the enum gives tests something exact to assert on.
 - **Model error → `ModelRetry`** — a bad ID, a stale reference, a malformed argument. Recoverable
   in one more step, so it goes back to the model rather than ending the turn (the
   `crayon-rm-library` `_STALE_SLUG_HINT` pattern, in Indonesian).
@@ -368,9 +368,10 @@ not be raised.
 
 `update_shipping_address` is the canonical case. `orders/policies.py::can_change_address(status)`
 returns a `Decision`; `shipped` and `delivered` are refused with
-`ResultCode.ORDER_ALREADY_SHIPPED`, `cancelled` with `ResultCode.ORDER_CANCELLED`, and
-`Decision.as_result()` turns it into the `ActionResult` the tool hands back. The rule is a pure
-function over a status, so the test asserts it directly and needs no agent, model, or database.
+`ResultCode.ORDER_ALREADY_SHIPPED` and `cancelled` with `ResultCode.ORDER_CANCELLED`; the
+service turns that decision into the `ActionResult` the tool hands back, appending the shipment
+evidence where it has any. The rule is a pure function over a status, so the test asserts it
+directly and needs no agent, model, or database.
 
 **A refusal must carry its own evidence.** The refusal used to read "the parcel is already with
 the courier, contact them" while supplying no courier and no tracking number. Observed in a real

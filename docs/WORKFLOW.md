@@ -109,7 +109,7 @@ The model picks tools and writes prose. Around every call it makes:
   tool.
 - **Each capability enforces its own policy** in its service, and the tool returns a *typed
   outcome*. A refusal is an `ActionResult(code=…, detail=…)` — a correct business answer, not an
-  exception, and `success` is derived from the code rather than stored beside it. A refusal also
+  exception, and the code is the whole of it: no `success` field to disagree with it. A refusal also
   carries the evidence it refers to: an address change refused because the parcel has shipped
   names *that order's* courier and resi, because a gap the model can see is a gap it will fill
   from an earlier turn. A recoverable mistake (stale order id) raises `ModelRetry` and goes back
