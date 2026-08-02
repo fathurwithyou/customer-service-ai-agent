@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConversationContext } from "./context";
-import { clearSession, recallName, rememberName, sessionId as storedSessionId } from "./session";
+import {
+  adoptSession,
+  clearSession,
+  recallName,
+  rememberName,
+  sessionId as storedSessionId,
+} from "./session";
 import { readEvents } from "./stream";
-import type { Activity, ConversationState, Turn } from "./types";
+import type { Activity, ConversationState, Summary, Turn } from "./types";
 
 const OPENING: Extract<Turn, { role: "agent" }> = {
   role: "agent",
@@ -22,6 +28,7 @@ export function Conversation({ children }: { children: React.ReactNode }) {
     customerName: recallName(),
     busy: false,
     loading: true,
+    saved: [],
   });
 
   // A refresh continues the conversation: the server already holds every message, so the client
@@ -47,6 +54,19 @@ export function Conversation({ children }: { children: React.ReactNode }) {
       live = false;
     };
   }, [sessionId]);
+
+  // The picker's list is server state; it is re-read after anything that could change it
+  // rather than patched locally, so it cannot drift from what the database holds.
+  const refresh = useCallback(async () => {
+    const saved: Summary[] = await fetch("/conversations")
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => []);
+    setState((s) => ({ ...s, saved }));
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh, sessionId]);
 
   const send = useCallback(
     async (message: string, customerHint: string | null) => {
@@ -99,20 +119,37 @@ export function Conversation({ children }: { children: React.ReactNode }) {
         patchAgent({ text: "Maaf, koneksi terputus. Coba kirim ulang pesannya.", streaming: false });
       } finally {
         setState((s) => ({ ...s, busy: false }));
+        void refresh();
       }
     },
-    [sessionId],
+    [sessionId, refresh],
   );
 
   const reset = useCallback(() => {
     clearSession();
-    setState({ turns: [], customerName: null, busy: false, loading: false });
+    setState((s) => ({ ...s, turns: [], customerName: null, busy: false, loading: false }));
     setSessionId(storedSessionId());
   }, []);
 
+  const open = useCallback((id: string) => {
+    adoptSession(id);
+    setState((s) => ({ ...s, turns: [], busy: false, loading: true }));
+    setSessionId(id);
+  }, []);
+
+  const forget = useCallback(
+    async (id: string) => {
+      await fetch(`/chat/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+      // Deleting the one on screen leaves nothing to show, so it also starts a fresh session.
+      if (id === sessionId) reset();
+      await refresh();
+    },
+    [sessionId, reset, refresh],
+  );
+
   const value = useMemo(
-    () => ({ state, actions: { send, reset }, meta: { sessionId } }),
-    [state, send, reset, sessionId],
+    () => ({ state, actions: { send, reset, open, forget }, meta: { sessionId } }),
+    [state, send, reset, open, forget, sessionId],
   );
   return <ConversationContext value={value}>{children}</ConversationContext>;
 }

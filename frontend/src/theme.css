@@ -22,18 +22,57 @@ body { font: 15.5px/1.68 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sa
 svg { width: 1em; height: 1em; display: block; }
 
 /* ---------- header ---------- */
-header { display: flex; align-items: center; gap: .55rem; margin-bottom: 1.7rem;
-         animation: rise .4s var(--ease-out) both; }
+/* Sticky: with a long conversation the picker has to stay reachable without scrolling up. */
+header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: .55rem;
+         margin: -2.2rem -1.1rem 1.4rem; padding: 1rem 1.1rem .85rem;
+         background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(14px);
+         border-bottom: 1px solid transparent; animation: rise .4s var(--ease-out) both; }
+header.stuck { border-bottom-color: var(--line); }
 h1 { font-size: .95rem; font-weight: 620; margin: 0; letter-spacing: -.01em; }
 .who { font-size: .78rem; color: var(--ink3); }
 .who.known { color: var(--accent); background: var(--accent-soft);
              padding: .12rem .5rem; border-radius: 1rem; font-weight: 550; }
-.reset { margin-left: auto; font: inherit; font-size: .76rem; color: var(--ink2);
-         background: var(--card); cursor: pointer; border: 1px solid var(--line);
-         border-radius: 1rem; padding: .28rem .75rem;
+/* ---------- conversation picker ---------- */
+.picker { margin-left: auto; position: relative; }
+.reset { display: inline-flex; align-items: center; gap: .4rem; font: inherit; font-size: .76rem;
+         color: var(--ink2); background: var(--card); cursor: pointer;
+         border: 1px solid var(--line); border-radius: 1rem; padding: .3rem .8rem;
          transition: border-color .18s, color .18s, transform .12s var(--ease-out); }
+.reset svg { width: 12px; height: 12px; }
 .reset:hover { color: var(--ink); border-color: var(--ink3); }
 .reset:active { transform: scale(.96); }
+.picker.open .reset { color: var(--ink); border-color: var(--ink3); }
+.count { background: var(--faint); border-radius: 1rem; padding: 0 .38rem; font-size: .7rem;
+         color: var(--ink3); }
+
+.panel { position: absolute; right: 0; top: calc(100% + .5rem); width: 21rem; z-index: 20;
+         background: var(--card); border: 1px solid var(--line); border-radius: .85rem;
+         box-shadow: var(--shadow); padding: .4rem; max-height: 70vh; overflow-y: auto;
+         animation: drop .22s var(--ease-out) both; }
+@keyframes drop { from { opacity: 0; transform: translateY(-6px) } to { opacity: 1; transform: none } }
+.cnew { display: flex; align-items: center; gap: .45rem; width: 100%; font: inherit;
+        font-size: .82rem; font-weight: 550; color: var(--accent); background: var(--accent-soft);
+        border: 0; border-radius: .6rem; padding: .5rem .65rem; cursor: pointer;
+        box-shadow: none; }
+.cnew svg { width: 13px; height: 13px; }
+.cnew:hover { filter: brightness(.98); }
+.cempty { font-size: .8rem; color: var(--ink3); margin: .7rem .65rem .4rem; }
+.clist { list-style: none; margin: .35rem 0 0; padding: 0; }
+.crow { display: flex; align-items: stretch; border-radius: .6rem; }
+.crow:hover { background: var(--faint); }
+.crow.on { background: var(--accent-soft); }
+.copen { flex: 1; min-width: 0; text-align: left; font: inherit; background: none; border: 0;
+         cursor: pointer; padding: .5rem .6rem; box-shadow: none; color: inherit;
+         display: grid; gap: .1rem; }
+.ctext { font-size: .82rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis;
+         white-space: nowrap; }
+.crow.on .ctext { color: var(--accent); font-weight: 550; }
+.cmeta { font-size: .72rem; color: var(--ink3); }
+.cdrop { background: none; border: 0; box-shadow: none; color: var(--ink3); cursor: pointer;
+         padding: 0 .6rem; opacity: 0; transition: opacity .15s, color .15s; }
+.cdrop svg { width: 14px; height: 14px; }
+.crow:hover .cdrop { opacity: 1; }
+.cdrop:hover { color: #b4402f; }
 
 /* ---------- turns ---------- */
 .log { display: flex; flex-direction: column; }

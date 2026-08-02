@@ -18,6 +18,16 @@ export type Turn =
       activity: Activity[];
     };
 
+/** A row in the picker. `opening` is the customer's first message, read out of the stored
+ *  payload rather than kept in a second column. */
+export interface Summary {
+  session_id: string;
+  opened_at: string | null;
+  last_at: string | null;
+  messages: number;
+  opening: string | null;
+}
+
 export interface ConversationState {
   turns: Turn[];
   customerName: string | null;
@@ -25,11 +35,16 @@ export interface ConversationState {
   busy: boolean;
   /** History is still being fetched, so an empty log is not yet meaningful. */
   loading: boolean;
+  /** Every conversation the server still holds, newest first. */
+  saved: Summary[];
 }
 
 export interface ConversationActions {
   send: (message: string, customerHint: string | null) => Promise<void>;
+  /** Leave this conversation for a new one. The old one is kept; use `forget` to delete it. */
   reset: () => void;
+  open: (sessionId: string) => void;
+  forget: (sessionId: string) => Promise<void>;
 }
 
 export interface ConversationMeta {

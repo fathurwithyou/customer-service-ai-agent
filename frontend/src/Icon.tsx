@@ -12,6 +12,8 @@ const PATHS: Record<string, string> = {
   headset: "M4 15v-3a8 8 0 0 1 16 0v3M4 15a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2m16 0a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2m-3 4v1a2 2 0 0 1-2 2h-3",
   dot: "M12 12h.01",
   check: "M4.5 12.5 9.5 17.5 19.5 7",
+  trash: "M4 7h16M9 7V5h6v2M6.5 7l.8 13h9.4l.8-13M10 11v6M14 11v6",
+  plus: "M12 5v14M5 12h14",
   spark: "M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18",
 };
 

@@ -162,3 +162,28 @@ async def test_a_crashed_run_is_persisted_once_not_duplicated(sessions: Sessions
     kinds = [r.kind for r in rows]
     assert kinds == ["request", "response", "request"], kinds
     assert len({r.seq for r in rows}) == 3, "the failed run re-inserted the earlier turn"
+
+
+async def test_conversations_are_listed_and_can_be_forgotten(sessions: Sessions) -> None:
+    """The picker reads its preview out of the JSONB payload, so recognising a conversation
+    costs no second column -- and deleting one leaves the others alone.
+    """
+    settings = _settings()
+    app = create_app(settings, sessions=sessions)
+    async with serving(app) as client:
+        with app.state.agent.override(model=_script()):
+            for session_id, text in (("a", "pesan pertama"), ("b", "pesan kedua")):
+                await client.post(
+                    "/chat",
+                    json={"session_id": session_id, "customer_hint": None, "message": text},
+                )
+
+        listed = (await client.get("/conversations")).json()
+        assert [c["session_id"] for c in listed] == ["b", "a"]  # newest first
+        assert [c["opening"] for c in listed] == ["pesan kedua", "pesan pertama"]
+        assert all(c["messages"] > 0 for c in listed)
+
+        assert (await client.delete("/chat/a")).status_code == 204
+        left = (await client.get("/conversations")).json()
+        assert [c["session_id"] for c in left] == ["b"]
+        assert (await client.get("/chat/a")).json() == []

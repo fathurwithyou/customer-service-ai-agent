@@ -32,7 +32,7 @@ from ..agentic_system.shared.database import (
     session_factory,
     session_scope,
 )
-from ..agentic_system.shared.message_store import MessageStore
+from ..agentic_system.shared.message_store import Conversation, MessageStore
 from ..agentic_system.shared.settings import Settings
 from ..agentic_system.shared.telemetry import instrument_database, setup_observability
 from ..agentic_system.shared.transcript import Turn, read
@@ -123,6 +123,14 @@ def create_app(settings: Settings | None = None, *, sessions: Sessions | None = 
             media_type="text/event-stream",
             headers={"cache-control": "no-cache", "x-accel-buffering": "no"},
         )
+
+    @app.get("/conversations", response_model=list[Conversation])
+    async def conversations(session: Db) -> list[Conversation]:
+        return await MessageStore(session).conversations()
+
+    @app.delete("/chat/{session_id}", status_code=204)
+    async def forget(session_id: str, session: Db) -> None:
+        await MessageStore(session).drop(session_id)
 
     @app.get("/chat/{session_id}", response_model=list[Turn])
     async def history(session_id: str, session: Db) -> list[Turn]:

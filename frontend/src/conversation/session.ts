@@ -20,6 +20,12 @@ export function rememberName(name: string | null): void {
   else localStorage.removeItem(KEYS.name);
 }
 
+/** Switching to a stored conversation makes it the one a refresh will reopen. */
+export function adoptSession(id: string): void {
+  localStorage.setItem(KEYS.session, id);
+  localStorage.removeItem(KEYS.name);
+}
+
 export function clearSession(): void {
   localStorage.removeItem(KEYS.session);
   localStorage.removeItem(KEYS.name);

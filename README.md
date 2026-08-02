@@ -163,6 +163,18 @@ pengajuan pengembalian" — declared per capability as `ACTIVITY` next to the to
 the same language the agent answers in. `escalated` and `ticket_id` cannot be streamed (they are
 read from the finished transcript), which is why `done` exists at all.
 
+### `GET /conversations`
+
+Every conversation the server still holds, newest first: `session_id`, `opened_at`, `last_at`,
+`messages`, and `opening` — the customer's first message, read straight out of the stored
+`payload` with `payload -> 'parts' -> 0 ->> 'content'`. Recognising a conversation therefore
+costs no second table and no denormalised column.
+
+### `DELETE /chat/{session_id}`
+
+Forgets one conversation. `204`, and idempotent. Tickets and orders are untouched: this deletes
+the transcript, not the customer's history with the shop.
+
 ### `GET /chat/{session_id}`
 
 The conversation so far, reduced to readable turns: `role` (`customer` / `agent`), `text`, and
