@@ -14,9 +14,10 @@ class Settings(BaseSettings):
     # Any Groq model id. No key falls back to the keyless `test` model, so the service boots.
     model_name: str = "openai/gpt-oss-120b"
 
-    # Ordered by grounded replies over three runs each: 120b 3/3, qwen 3/3, 20b 2/3. The llama
-    # models scored 1/3 and 0/3 and are excluded -- DESIGN §7 records why 0/3 is the dangerous
-    # one.
+    # Ordered by grounded replies over three runs each: 120b 3/3, qwen 3/3, 20b 2/3. The llamas
+    # scored 1/3 and 0/3 and stay out: 3.3 writes `<function=...>` into the text channel rather
+    # than calling a tool, and Groq sometimes returns that as content -- raising nothing, so a
+    # fallback chain cannot see it.
     fallback_models: list[str] = ["qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
     groq_api_key: SecretStr | None = None
 

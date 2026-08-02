@@ -1,4 +1,4 @@
-"""Stream a turn as server-sent events. DESIGN §11.
+"""Stream a turn as server-sent events.
 
 Deltas are coalesced to words: character-level deltas flicker. The outcome is only known once
 the run is over, so it arrives in a final `done` event.

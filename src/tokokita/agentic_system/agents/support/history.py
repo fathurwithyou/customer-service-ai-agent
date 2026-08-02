@@ -1,4 +1,4 @@
-"""What the model sees, which is less than what we store. DESIGN §10.
+"""What the model sees, which is less than what we store.
 
 Runs, not messages: cutting mid-run separates a tool call from its return.
 """

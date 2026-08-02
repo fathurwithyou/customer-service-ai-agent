@@ -14,7 +14,7 @@ was real and re-doing it would cost the same day twice.
 | Package | Version | Notes |
 |---|---|---|
 | `pydantic-ai-slim[groq]` | **2.21.0** | V2 line. `pydantic-ai` (full) pulls every provider; slim + one extra is enough. ⟲ pinned `>=2.22.0`; **2.22.0** is what is installed now. Every signature below was re-checked against it and none moved. |
-| `pydantic-ai-harness` | **0.14.0** | Separate package, 0.x — APIs still stabilising. ⟲ researched only; never used, and the dependency has since been removed (DESIGN.md §5.4). |
+| `pydantic-ai-harness` | **0.14.0** | Separate package, 0.x — APIs still stabilising. ⟲ researched only; never used, and the dependency has since been removed. |
 | `pydantic` | **2.13.4** | |
 | `pydantic-settings` | **2.14.2** | |
 | `fastapi[standard]` | **0.141.1** | Starlette 1.3.1, uvicorn 0.52.0. |
@@ -22,7 +22,7 @@ was real and re-doing it would cost the same day twice.
 | `arize-phoenix-otel` | **0.16.1** | Only the client; the server runs in Docker. |
 | `openinference-instrumentation-pydantic-ai` | **0.1.18** | |
 | `asyncpg` | 0.31.1 | ⟲ replaced `aiosqlite`. The driver, never imported by our code. |
-| `sqlalchemy[asyncio]` | 2.0.51 | ⟲ added late; it replaced a hand-rolled `Database` class. See DESIGN §7. |
+| `sqlalchemy[asyncio]` | 2.0.51 | ⟲ added late; it replaced a hand-rolled `Database` class. |
 | `groq` | 1.6.0 | Transitive via the `[groq]` extra. |
 
 ⟲ There is no `tenacity` and no `[retries]` extra in the installed set any more: the only thing
@@ -101,7 +101,7 @@ return_schema, include_return_schema, toolset_id, capability_id
 per-tool policy without knowing anything about the domain.
 
 ⟲ Not used in the end. `IdentityGate` keys its access map by `tool_def.name`, merged from the
-`ACCESS` map each capability declares (DESIGN.md §4). Same property — the gate knows no domain —
+`ACCESS` map each capability declares. Same property — the gate knows no domain —
 without threading metadata through every tool registration.
 
 ---
@@ -130,7 +130,7 @@ run_step, partial_output, run_id, conversation_id, metadata, capabilities, ...
 ```
 
 **`ctx.messages`** is the live message history. That is what lets an output validator verify
-what the model *actually did* rather than what it *claims* it did (DESIGN.md §5.3).
+what the model *actually did* rather than what it *claims* it did.
 
 ---
 
@@ -199,7 +199,7 @@ keys on `tool_def.name` instead. Nothing in the codebase sets `ToolDefinition.me
 
 ⟲ **Research only.** None of this shipped: the package was never used and is no longer a
 dependency, so the enforcement it describes is done by `agent.output_validator` instead
-(DESIGN.md §5.4). The findings below stand for the day a second agent makes reuse worth a
+and was removed. The findings below stand for the day a second agent makes reuse worth a
 `0.x` dependency.
 
 `pydantic-ai-harness` 0.14.0. Verified signatures (`inspect.signature`):
@@ -250,7 +250,7 @@ agent = Agent('...', capabilities=[InputGuardrail(guard=no_secrets), OutputGuard
 `CodeMode` (Monty Rust-sandboxed Python that orchestrates tools in one call), `Subagents`,
 `FileSystem`, `Shell`, `Memory`, `Planning`, `Compaction`, `ToolOutputLimits`,
 `StepPersistence`, `ConversationSearch`, `RepoContext`, `Skills`, `ExaSearch`,
-`DynamicWorkflow`, `ManagedPrompt`. Why each is *not* used here → DESIGN.md §7.
+`DynamicWorkflow`, `ManagedPrompt`. None is used here; each would add a boundary this system does not have.
 
 ---
 
@@ -437,7 +437,7 @@ message attributes to prevent false positives."* So Logfire's built-in scrubber 
 redact PII inside `gen_ai.*` prompt/completion attributes. Redacting customer email/phone in
 traces therefore has to be done by the application before the data reaches a span — it
 cannot be delegated to `ScrubbingOptions`. This is why `shared/telemetry.py` records
-`customer_id` and never the contact used to look someone up (DESIGN.md §8).
+`customer_id` and never the contact used to look someone up.
 
 ---
 
@@ -558,7 +558,7 @@ tools (`override(native_tools=[])` if that ever matters here; it does not).
 
 ## 11. Decision framework: plain tool / capability / MCP / sub-agent / structured output
 
-Derived from the above; applied concretely in DESIGN.md §7.
+Derived from the above.
 
 | Reach for | When | Why not the others |
 |---|---|---|

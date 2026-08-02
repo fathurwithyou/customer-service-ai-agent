@@ -1,7 +1,7 @@
 """A column whose Python value is a Pydantic model. JSONB, so the body stays queryable.
 
 The value at this boundary is a dict, not JSON bytes -- hence `dump_python`, not `dump_json`.
-`tests/test_pydantic_column.py` holds that to be true. DESIGN §10.
+`tests/test_pydantic_column.py` holds that to be true.
 """
 
 from __future__ import annotations

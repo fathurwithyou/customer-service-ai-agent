@@ -2,7 +2,7 @@
 the message itself goes in `payload`, so nothing here serialises anything.
 
 This keeps everything, including a run that died -- it is the audit record. What the *model*
-sees is `history.py`'s job. DESIGN §10.
+sees is `history.py`'s job.
 """
 
 from __future__ import annotations
