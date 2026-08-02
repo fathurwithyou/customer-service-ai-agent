@@ -493,16 +493,57 @@ failure rather than a bill. No test needs `GROQ_API_KEY`.
 
 ## 10. Conversation state
 
-**Decision.** `shared/message_store.py` persists the whole turn history to a `conversations`
-table through `ModelMessagesTypeAdapter` — the framework's own wire format — rather than a shape
-of our own that would need migrating every time a part type changes. `sanitize_messages` strips
-system prompts before saving: instructions are re-injected on every run, so keeping them only
-grows the row and risks replaying a stale prompt. A trailing window is kept, not the full
-history, because context is finite.
+**Decision.** One row per `ModelMessage` in `conversation_messages`, with the message itself
+kept in the framework's own format.
 
-An in-process dict would have been shorter and is what the demo started with. It loses every
-conversation on redeploy and is wrong the moment there is a second worker, and SQLite is already
-open — so the cheap version costs a table, not a service.
+The columns are only the fields pydantic-ai puts on *every* message — `kind`, `run_id`,
+`timestamp`, and the `conversation_id` we key on. Everything below that (`parts`, and the
+eleven part types under them) stays in `payload`, serialised by `TypeAdapter(ModelMessage)`.
+That line is the whole design: **the framework owns the message shape, the database owns only
+what we query on.** Normalising parts into tables would buy nothing and cost a migration every
+time pydantic-ai adds a part type — and it has eleven already, including `ThinkingPart`,
+`CompactionPart` and `NativeToolCallPart`.
+
+Rows are appended from `result.new_messages()`, not rewritten from `all_messages()`. The blob
+version rewrote the entire growing history on every turn.
+
+`sanitize_messages` strips system prompts before saving: instructions are re-injected on every
+run, so keeping them only grows the row and risks replaying a stale prompt.
+
+**The window is counted in runs, not messages.** Cutting at the 40th message can land between a
+tool call and its return and leave the model a dangling reference; a run is atomic, so dropping
+whole runs cannot. Storing `run_id` is what makes that expressible in SQL.
+
+`ModelRequest.timestamp` is `datetime | None` — a request carries no timestamp until the model
+answers — so `created_at` is nullable rather than invented. A test found this, not a reading of
+the code.
+
+### SQL or a document store
+
+The access pattern — fetch every message for one key, append to one key, never join on message
+content — is exactly what a document store is for, and MongoDB or DynamoDB would model it
+without complaint.
+
+SQL wins here on three specific grounds, none of them "we already had SQL":
+
+- **Atomicity across domains.** A turn writes conversation messages *and* `ticket_messages`, and
+  an escalating turn also writes `tickets`. Splitting the transcript into a second store means
+  those stop being one transaction, and the failure it admits — a ticket with no conversation
+  attached to it — is the one a support system cannot afford.
+- **The questions the PRD actually asks** are joins. Containment rate is turns-per-conversation
+  against escalations; CSAT is a rating against a customer. Both cross from conversation data
+  into marketplace data.
+- **Postgres `JSONB` is the document store.** It indexes inside the document and queries into it,
+  so choosing SQL costs nothing on the document side. SQLite reaches the same shape with `TEXT`
+  and `json_extract`.
+
+A second datastore for one table is operational surface with no compensating gain at this size.
+The point at which that flips is volume: when transcripts outgrow the transactional store, the
+right move is to keep the *columns* here and move `payload` to object storage or a document
+store, which the split above already makes possible.
+
+An in-process dict was the first version. It loses every conversation on redeploy and is wrong
+the moment there is a second worker.
 
 Only the transcript is stored. Who the customer is arrives as injected context on every request,
 so a server-side copy of it would be a second source of truth that can drift from the one the

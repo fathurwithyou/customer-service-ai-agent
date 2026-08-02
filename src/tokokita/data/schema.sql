@@ -87,8 +87,16 @@ CREATE TABLE ticket_messages (
     created_at TEXT DEFAULT (datetime('now'))
 );
 
-CREATE TABLE conversations (
-    session_id  TEXT PRIMARY KEY,
-    messages    TEXT NOT NULL,                  -- ModelMessagesTypeAdapter.dump_json
-    updated_at  TEXT DEFAULT (datetime('now'))
+-- One row per ModelMessage. The columns are the fields pydantic-ai puts on every message;
+-- the message itself stays in `payload` in the framework's own format, so a new part type
+-- needs no migration.
+CREATE TABLE conversation_messages (
+    message_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL,                  -- ModelMessage.conversation_id
+    seq         INTEGER NOT NULL,               -- order within the conversation
+    kind        TEXT NOT NULL,                  -- ModelMessage.kind: request | response
+    run_id      TEXT,                           -- groups the messages of one agent run
+    created_at  TEXT,                           -- ModelMessage.timestamp; null on a request
+    payload     TEXT NOT NULL,
+    UNIQUE (session_id, seq)
 );

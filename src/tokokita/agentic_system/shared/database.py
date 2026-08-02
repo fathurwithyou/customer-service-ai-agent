@@ -186,19 +186,29 @@ class Database:
         )
         return int(row["ticket_id"]) if row else None
 
-    async def conversation_row(self, session_id: str) -> Row | None:
-        return await self._one(
-            "SELECT messages FROM conversations WHERE session_id = ?", (session_id,)
+    async def recent_messages(self, session_id: str, max_runs: int) -> list[Row]:
+        """The last `max_runs` runs in order. Whole runs, so no tool call loses its return."""
+        return await self._all(
+            "SELECT payload FROM conversation_messages"
+            " WHERE session_id = ? AND seq >= COALESCE("
+            "   (SELECT MIN(seq) FROM (SELECT seq, run_id FROM conversation_messages"
+            "     WHERE session_id = ? GROUP BY run_id ORDER BY MIN(seq) DESC LIMIT ?)), 0)"
+            " ORDER BY seq",
+            (session_id, session_id, max_runs),
         )
 
-    async def upsert_conversation(self, session_id: str, messages: str) -> None:
-        await self._insert(
-            "INSERT INTO conversations (session_id, messages, updated_at)"
-            " VALUES (?, ?, datetime('now'))"
-            " ON CONFLICT(session_id) DO UPDATE SET messages = excluded.messages,"
-            " updated_at = excluded.updated_at",
-            (session_id, messages),
+    async def append_messages(self, session_id: str, rows: list[tuple]) -> None:
+        cursor = await self._db.execute(
+            "SELECT COALESCE(MAX(seq), 0) FROM conversation_messages WHERE session_id = ?",
+            (session_id,),
         )
+        seq = (await cursor.fetchone())[0]
+        await self._db.executemany(
+            "INSERT INTO conversation_messages"
+            " (session_id, seq, kind, run_id, created_at, payload) VALUES (?, ?, ?, ?, ?, ?)",
+            [(session_id, seq + i, *row) for i, row in enumerate(rows, start=1)],
+        )
+        await self._db.commit()
 
     async def insert_ticket_message(self, ticket_id: int, sender: str, message: str) -> None:
         await self._insert(

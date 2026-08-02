@@ -93,7 +93,7 @@ async def run_turn(
             reply.message, escalated=escalated, ticket_id=ticket_id, usage=result.usage
         )
 
-    await store.save(session_id, result.all_messages())
+    await store.append(session_id, result.new_messages())
     if customer is not None:
         await deps.tickets.record_turn(
             customer.customer_id, reply.ticket_id, message, reply.message

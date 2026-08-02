@@ -134,7 +134,7 @@ never ran, because it is never asked to.
 
 `customer_hint` accepts an email, a phone number, or an order id — but **only email or phone
 verify**. An order number is printed on the parcel, so treating it as a credential would make a
-shipping label a password. The turn history is persisted per `session_id` to the `conversations`
+shipping label a password. The turn history is persisted per `session_id` to the `conversation_messages`
 table (the framework's own wire format, last 40 messages, system prompts stripped) and replayed
 on the next request; turns are additionally written to `ticket_messages` when the customer has
 an open ticket.

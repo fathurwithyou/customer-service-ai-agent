@@ -143,7 +143,7 @@ it guarded against cannot be expressed. `runner.run_turn` assembles the `AgentRe
 model's text plus those facts.
 
 Then: persist the conversation through `MessageStore` — the framework's own message format, into
-the `conversations` table, system prompts stripped — write the turn into `ticket_messages`, and
+`conversation_messages`, one row per message, system prompts stripped — write the turn into `ticket_messages`, and
 record `escalated`, token counts, and request count on the span.
 
 ## Failure path

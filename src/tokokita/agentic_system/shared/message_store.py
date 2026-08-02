@@ -1,17 +1,22 @@
-"""Transcript persistence in the framework's own format, so a new part type needs no migration.
+"""Conversation persistence, one row per message.
 
-Identity is not stored: it arrives as injected context each request, and a server-side copy
-would be a second source of truth. System prompts are stripped -- instructions are re-injected
-every run.
+Only the fields pydantic-ai puts on every `ModelMessage` become columns; the message itself
+stays in the framework's own format, so a new part type needs no migration. A turn appends its
+new messages instead of rewriting a growing blob.
+
+The window is counted in runs, not messages: cutting mid-run would separate a tool call from
+its return. System prompts are stripped -- instructions are re-injected every run.
 """
 
 from __future__ import annotations
 
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter, sanitize_messages
+from pydantic import TypeAdapter
+from pydantic_ai.messages import ModelMessage, sanitize_messages
 
 from .database import Database
 
-MAX_MESSAGES = 40
+MESSAGE = TypeAdapter(ModelMessage)
+MAX_RUNS = 12
 
 
 class MessageStore:
@@ -19,13 +24,18 @@ class MessageStore:
         self._db = db
 
     async def load(self, session_id: str) -> list[ModelMessage]:
-        row = await self._db.conversation_row(session_id)
-        if row is None:
-            return []
-        return ModelMessagesTypeAdapter.validate_json(row["messages"])
+        rows = await self._db.recent_messages(session_id, MAX_RUNS)
+        return [MESSAGE.validate_json(row["payload"]) for row in rows]
 
-    async def save(self, session_id: str, messages: list[ModelMessage]) -> None:
-        kept = sanitize_messages(messages)[-MAX_MESSAGES:]
-        await self._db.upsert_conversation(
-            session_id, ModelMessagesTypeAdapter.dump_json(kept).decode()
-        )
+    async def append(self, session_id: str, messages: list[ModelMessage]) -> None:
+        rows = [
+            (
+                message.kind,
+                message.run_id,
+                message.timestamp.isoformat() if message.timestamp else None,
+                MESSAGE.dump_json(message).decode(),
+            )
+            for message in sanitize_messages(messages)
+        ]
+        if rows:
+            await self._db.append_messages(session_id, rows)

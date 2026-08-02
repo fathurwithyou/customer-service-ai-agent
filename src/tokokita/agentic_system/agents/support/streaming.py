@@ -113,7 +113,7 @@ async def stream_turn(
             reply.message, escalated=escalated, ticket_id=ticket_id, usage=result.usage
         )
 
-    await store.save(session_id, messages)
+    await store.append(session_id, result.new_messages())
     if deps.customer is not None:
         await deps.tickets.record_turn(deps.customer.customer_id, ticket_id, message, reply.message)
     yield event("done", reply.model_dump())
