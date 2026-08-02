@@ -19,6 +19,7 @@ from tokokita.agentic_system.shared.database import (
 )
 from tokokita.agentic_system.shared.settings import Settings
 from tokokita.data.seed import load_seed
+from tokokita.data.tables import Base
 
 models.ALLOW_MODEL_REQUESTS = False
 
@@ -37,7 +38,9 @@ def anyio_backend() -> str:
 @pytest.fixture
 async def sessions() -> AsyncIterator[Sessions]:
     engine = create_engine(TEST_URL)
-    await create_schema(engine, fresh=True)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await create_schema(engine)
     await load_seed(engine)
     yield session_factory(engine)
     await engine.dispose()

@@ -70,7 +70,7 @@ async def test_address_change_refused_once_shipped(session: AsyncSession) -> Non
 
 async def test_address_change_allowed_before_shipping(session: AsyncSession) -> None:
     result = await OrderService(session).change_address(3, BUNGA, "Jl. Anggrek No. 2, Bandung")
-    assert result.success is True
+    assert result.code is ResultCode.OK
     detail = await OrderService(session).detail(3, BUNGA)
     assert detail.shipping_address == "Jl. Anggrek No. 2, Bandung"
 
@@ -125,15 +125,12 @@ def test_refund_amount_cannot_be_negative() -> None:
         ReturnRequest(return_id=1, order_id=1, product_id=1, reason="x", refund_amount=-1)
 
 
-def test_action_result_success_is_derived() -> None:
-    assert ActionResult(code=ResultCode.OK, detail="x").success is True
-    assert ActionResult(code=ResultCode.UNAVAILABLE, detail="x").success is False
 
 
 async def test_address_change_succeeds_on_a_processing_order(session: AsyncSession) -> None:
     """Order 4 exists so this path is reachable at all -- orders 1 and 2 are both past it."""
     result = await OrderService(session).change_address(4, ANDI, "Jl. Sangkuriang No. 7, Bandung")
-    assert result.success is True
+    assert result.code is ResultCode.OK
     assert (
         await OrderService(session).detail(4, ANDI)
     ).shipping_address == "Jl. Sangkuriang No. 7, Bandung"

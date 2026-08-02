@@ -1,5 +1,8 @@
-"""A policy refusal is a result, not an exception. `success` is derived: two fields for one
-fact can disagree.
+"""A policy refusal is a result, not an exception.
+
+The outcome is a code and a sentence: the code is what a test asserts on and what a caller
+branches on, the sentence is what the model reads. A `success` boolean alongside the code would
+be a second field for one fact, and two fields for one fact can disagree.
 """
 
 from __future__ import annotations
@@ -21,15 +24,8 @@ class ActionResult(BaseModel):
     code: ResultCode
     detail: str
 
-    @property
-    def success(self) -> bool:
-        return self.code is ResultCode.OK
-
 
 class Decision(BaseModel):
     allowed: bool
     code: ResultCode
     detail: str
-
-    def as_result(self) -> ActionResult:
-        return ActionResult(code=self.code, detail=self.detail)

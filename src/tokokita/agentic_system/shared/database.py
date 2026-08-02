@@ -30,10 +30,8 @@ def session_factory(engine: AsyncEngine) -> Sessions:
     return async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
 
 
-async def create_schema(engine: AsyncEngine, *, fresh: bool = False) -> None:
+async def create_schema(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
-        if fresh:
-            await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
 
