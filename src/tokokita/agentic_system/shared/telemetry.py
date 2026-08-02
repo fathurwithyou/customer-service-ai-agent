@@ -161,6 +161,7 @@ def setup_observability(settings: Settings, app: FastAPI) -> None:
         # Makes the SDK's 429 retries visible. instrument_sqlite3 was dropped: it emits
         # nothing for aiosqlite, which runs on a worker thread.
         logfire.instrument_httpx(capture_headers=False)
+        logfire.instrument_sqlalchemy()
         # "failure", not "all": successful validations say nothing and bury the real spans.
         logfire.instrument_pydantic(record="failure")
         _configured = True
