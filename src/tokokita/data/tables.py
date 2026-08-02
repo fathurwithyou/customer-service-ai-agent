@@ -4,14 +4,22 @@ drift from it.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any, ClassVar
 
-from sqlalchemy import ForeignKey, Text, UniqueConstraint, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from pydantic_ai.messages import ModelMessage
+from sqlalchemy import DateTime, ForeignKey, Text, UniqueConstraint, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeEngine
+
+from .pydantic_column import PydanticJson
 
 
 class Base(DeclarativeBase):
-    pass
+    # pydantic-ai stamps messages in UTC, and a naive Postgres column rejects them outright.
+    type_annotation_map: ClassVar[dict[Any, TypeEngine[Any]]] = {
+        datetime: DateTime(timezone=True)
+    }
 
 
 class Customer(Base):
@@ -47,6 +55,12 @@ class Order(Base):
     shipping_address: Mapped[str | None]
     payment_method: Mapped[str | None]
 
+    # Declared so `OrderDetail` can be validated off one row; the query eager-loads them,
+    # because a lazy load inside async SQLAlchemy raises rather than blocking.
+    items: Mapped[list[OrderItem]] = relationship()
+    shipment: Mapped[Shipment | None] = relationship()
+    payment: Mapped[Payment | None] = relationship()
+
 
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -57,6 +71,8 @@ class OrderItem(Base):
     quantity: Mapped[int]
     unit_price: Mapped[float]
 
+    product: Mapped[Product] = relationship()
+
 
 class Shipment(Base):
     __tablename__ = "shipments"
@@ -66,9 +82,9 @@ class Shipment(Base):
     courier: Mapped[str | None]
     tracking_number: Mapped[str | None]
     status: Mapped[str | None]
-    estimated_delivery: Mapped[str | None]
-    shipped_at: Mapped[str | None]
-    delivered_at: Mapped[str | None]
+    estimated_delivery: Mapped[date | None]
+    shipped_at: Mapped[datetime | None]
+    delivered_at: Mapped[datetime | None]
 
 
 class Payment(Base):
@@ -79,7 +95,7 @@ class Payment(Base):
     amount: Mapped[float | None]
     method: Mapped[str | None]
     status: Mapped[str | None]
-    paid_at: Mapped[str | None]
+    paid_at: Mapped[datetime | None]
 
 
 class Return(Base):
@@ -120,7 +136,8 @@ class TicketMessage(Base):
 
 class ConversationMessage(Base):
     """One row per pydantic-ai ModelMessage. The columns are the fields it puts on every
-    message; the message itself stays in `payload` in the framework's own format.
+    message; the message itself stays in `payload`, validated by pydantic on the way in and
+    out, so no layer above this one handles JSON.
     """
 
     __tablename__ = "conversation_messages"
@@ -132,5 +149,5 @@ class ConversationMessage(Base):
     kind: Mapped[str]
     run_id: Mapped[str | None]
     state: Mapped[str]  # "interrupted" marks a run that died mid-flight
-    created_at: Mapped[str | None]  # ModelMessage.timestamp; null on a request
-    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime | None]  # ModelMessage.timestamp; null until the model answers
+    payload: Mapped[ModelMessage] = mapped_column(PydanticJson(ModelMessage))
