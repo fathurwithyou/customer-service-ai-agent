@@ -21,7 +21,7 @@ was real and re-doing it would cost the same day twice.
 | `logfire[fastapi]` | **4.39.0** | ⟲ the extra is now `logfire[fastapi,httpx,sqlalchemy]` — `instrument_httpx` and `instrument_sqlalchemy` earn their place, `instrument_sqlite3` did not (§8). |
 | `arize-phoenix-otel` | **0.16.1** | Only the client; the server runs in Docker. |
 | `openinference-instrumentation-pydantic-ai` | **0.1.18** | |
-| `aiosqlite` | 0.22.1 | Now the SQLAlchemy async driver, not a direct dependency of any code we write. |
+| `asyncpg` | 0.31.1 | ⟲ replaced `aiosqlite`. The driver, never imported by our code. |
 | `sqlalchemy[asyncio]` | 2.0.51 | ⟲ added late; it replaced a hand-rolled `Database` class. See DESIGN §7. |
 | `groq` | 1.6.0 | Transitive via the `[groq]` extra. |
 

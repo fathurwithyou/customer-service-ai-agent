@@ -363,8 +363,8 @@ not be raised.
   in one more step, so it goes back to the model rather than ending the turn (the
   `crayon-rm-library` `_STALE_SLUG_HINT` pattern, in Indonesian).
 - **Infrastructure failure → caught, logged, returned as a refusal** offering escalation. A
-  `sqlite3.Error` must not become a 500 that strands the customer; the constraint is "handle
-  tool/DB failures gracefully: acknowledge the limitation and offer escalation".
+  dropped database connection must not become a 500 that strands the customer; the constraint is
+  "handle tool/DB failures gracefully: acknowledge the limitation and offer escalation".
 
 `update_shipping_address` is the canonical case. `orders/policies.py::can_change_address(status)`
 returns a `Decision`; `shipped` and `delivered` are refused with
@@ -391,9 +391,10 @@ model will fill.
 | Rejected | Why it looked right | Why not |
 |---|---|---|
 | **Sub-agents** (`Subagents`) | The brief invites considering one; "escalation specialist" sounds tidy. | One cohesive domain, nine tools, one short conversation. Every delegation is an extra model round-trip plus a context hand-off, and the sub-agent would need the same DB scope and the same identity gate — so it duplicates the hard part and adds latency. Sub-agents earn their cost when contexts genuinely diverge; these don't. |
-| **MCP** | The tool layer is cleanly separable. | MCP buys a *process boundary*. Here the tools are local functions over a local SQLite file. Adding MCP adds serialisation, a server lifecycle, and a new failure mode, and buys nothing. It becomes right the day the marketplace DB belongs to another team behind a service. |
+| **MCP** | The tool layer is cleanly separable. | MCP buys a *process boundary*. Here the tools are local functions over a local database. Adding MCP adds serialisation, a server lifecycle, and a new failure mode, and buys nothing. It becomes right the day the marketplace DB belongs to another team behind a service. |
 | **CodeMode** | Fewer round-trips is appealing. | It pays off when tool calls fan out combinatorially. A turn here is 2–4 calls. The Monty sandbox would be a dependency and a debugging surface with no round-trips to save. |
 | **Harness guardrails** | Purpose-built for exactly this. | Researched, never used, dependency removed; `agent.output_validator` provides the same enforcement. See §5.4. |
+| ~~**SQLite**~~ ⟲ **reversed** | Zero setup, one file, right for a demo. | It has no `JSONB`, so the message payload was `TEXT` that every reader re-parses and no index can reach into — and the payload is the one column worth querying into. It was also hiding two real defects that Postgres surfaced on the first run: tz-aware timestamps written into a naive column, and `TestClient` driving an asyncpg connection from a foreign event loop. The demo cost is one `docker compose up -d db`. |
 | ~~**SQLAlchemy**~~ ⟲ **reversed** | Originally rejected: ~10 queries, and pooling is meaningless against local SQLite. | The argument was about query volume and missed the real cost — a hand-rolled `Database` class is a persistence interface nobody else knows, and `schema.sql` was a second declaration of the same tables that could silently drift from the code reading them. SQLAlchemy 2.0 async is the interface people already know: `Base.metadata` *is* the schema, `session_scope` *is* the transaction boundary, and `instrument_sqlalchemy` gives DB spans that `instrument_sqlite3` never could. The price is stated in §3 — scoping is no longer structurally unreachable. |
 | **A `verified: bool` flag on `SupportDeps`, checked in tools** | Simplest thing that could work. | This is failure (a) verbatim. The flag is fine — `SupportDeps.customer` carries it — but the *checking* must not be per-tool. |
 | **A structured `output_type` for the whole reply** | One typed object, validated by the framework, is the Pydantic AI house style. | An output tool is one more thing the model can fail to call, and every field but `message` was the model restating what the runtime already knew. Measured worse on the hardest case; see §5.3. Structure that is *derived* costs the model nothing and cannot disagree with the run. |
@@ -508,7 +509,10 @@ failure rather than a bill. No test needs `GROQ_API_KEY`.
 kept in the framework's own format.
 
 The columns are only the fields pydantic-ai puts on *every* message — `kind`, `run_id`,
-`state`, `timestamp`, and the `conversation_id` we key on. Everything below that (`parts`, and the
+`state`, `timestamp`, and the `conversation_id` we key on. `payload` is a `JSONB` column declared
+as `Mapped[ModelMessage]`: a `TypeDecorator` binds a Pydantic `TypeAdapter` to it, so validation
+happens *at the column* and no layer above ever sees JSON. The store hands SQLAlchemy a
+`ModelMessage` and gets a `ModelMessage` back. Everything below that (`parts`, and the
 eleven part types under them) stays in `payload`, serialised by `TypeAdapter(ModelMessage)`.
 That line is the whole design: **the framework owns the message shape, the database owns only
 what we query on.** Normalising parts into tables would buy nothing and cost a migration every
@@ -561,9 +565,10 @@ SQL wins here on three specific grounds, none of them "we already had SQL":
 - **The questions the PRD actually asks** are joins. Containment rate is turns-per-conversation
   against escalations; CSAT is a rating against a customer. Both cross from conversation data
   into marketplace data.
-- **Postgres `JSONB` is the document store.** It indexes inside the document and queries into it,
-  so choosing SQL costs nothing on the document side. SQLite reaches the same shape with `TEXT`
-  and `json_extract`.
+- **`JSONB` is the document store.** It indexes inside the document and queries into it, so
+  choosing SQL costs nothing on the document side. `payload -> 'parts'` is a real query against
+  parsed JSON rather than a string every reader must re-parse — which is why the column is
+  `JSONB` and, in turn, why the database is Postgres.
 
 A second datastore for one table is operational surface with no compensating gain at this size.
 The point at which that flips is volume: when transcripts outgrow the transactional store, the
@@ -592,10 +597,16 @@ still recognises a `final_result` call, so a transcript stored before §5.3 rema
 and is what the UI uses. `POST /chat` still answers a whole turn in one response, because a
 programmatic caller wants the assembled `AgentReply` and not a parser.
 
-`agents/support/streaming.py` drives everything from one `event_stream_handler` into an
-`asyncio.Queue`, which the generator drains. The handler is a *callback*: it cannot yield into
-the response, so something has to carry its events across that boundary. A queue also preserves
-the run's own ordering between tool activity and text, which two independent sources would not.
+`agents/support/streaming.py` is a plain `async for` over `agent.run_stream_events`, and the SSE
+generator yields straight out of that loop.
+
+⟲ It used to feed an `asyncio.Queue` from an `event_stream_handler`, because that handler is a
+*callback* and cannot yield into a response. `run_stream_events` is the framework's own answer to
+exactly that problem: it wraps `run`, hands back an async iterator, and ends with an
+`AgentRunResultEvent` carrying the result. Adopting it deleted the queue, the background task,
+and its sentinel — machinery that existed only to re-invert an inversion the library had already
+undone. It is an async *context manager* for a reason worth keeping: a customer who closes the
+tab stops the iteration, and the run is then torn down deterministically instead of leaking.
 
 Two things cannot be streamed and arrive in the final `done` event: `escalated` and `ticket_id`
 are read from the transcript once the run is over (§5.3), so there is no moment during the run at

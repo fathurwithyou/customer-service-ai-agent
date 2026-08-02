@@ -24,7 +24,8 @@ and [pnpm](https://pnpm.io/).
 ```bash
 uv sync                       # install
 cp .env.example .env          # then put your Groq key in it
-uv run python -m tokokita.data.seed   # create ./tokokita.db with the dummy data
+docker compose up -d db               # Postgres 17 on localhost:5433
+uv run python -m tokokita.data.seed   # create the schema and load the dummy data
 
 pnpm --dir frontend install   # the UI
 pnpm --dir frontend build     # -> src/tokokita/api/static/
@@ -48,7 +49,7 @@ All are optional except the Groq key, and all are prefixed `TOKOKITA_`.
 | `TOKOKITA_GROQ_API_KEY` | — | Groq API key. Unset ⇒ keyless `test` model. |
 | `TOKOKITA_MODEL_NAME` | `openai/gpt-oss-20b` | Any Groq model id. |
 | `TOKOKITA_REASONING_FORMAT` | `parsed` | `parsed` \| `hidden` \| `raw`. `parsed` gives the reasoning its own field, which becomes a `ThinkingPart`; `hidden` only suppresses it, and the model still writes analysis into the text channel where a tool call then fails to parse. Leave **empty** for a non-reasoning model, which would reject the parameter. |
-| `TOKOKITA_DATABASE_URL` | `sqlite+aiosqlite:///./tokokita.db` | SQLAlchemy async URL. |
+| `TOKOKITA_DATABASE_URL` | `postgresql+asyncpg://tokokita:tokokita@localhost:5433/tokokita` | Port 5433, not 5432: a locally installed Postgres commonly holds 5432 and would shadow the container. |
 | `TOKOKITA_PHOENIX_ENDPOINT` | `http://localhost:6006` | Empty string disables the Phoenix exporter. |
 | `TOKOKITA_LOGFIRE_TOKEN` | — | Set ⇒ traces also go to Logfire cloud. |
 | `TOKOKITA_LOGFIRE_ENVIRONMENT` | `development` | Logfire environment tag. |
@@ -237,11 +238,14 @@ src/tokokita/
     guardrails/           rules that apply across every capability:
                           access_levels.py identity_gate.py escalation.py
     shared/               settings.py telemetry.py database.py model_factory.py
-                          results.py message_store.py transcript.py
+                          results.py message_store.py transcript.py from_row.py
   api/app.py              FastAPI: create_app factory, /chat, /chat/stream,
                           /chat/{session_id}, /health, /orders/{id}, SPA at /
   api/static/             the built UI -- gitignored, produced by `pnpm build`
-  data/                   tables.py (SQLAlchemy models = the schema) seed.sql seed.py
+  data/                   tables.py (SQLAlchemy models = the schema)
+                          pydantic_column.py (JSONB validated as a Pydantic model)
+                          seed.sql seed.py
+docker-compose.yml        Postgres 17, plus the database the test suite owns
 frontend/                 React 19 + Vite, TypeScript:
   src/conversation/       Conversation.tsx (owns turn state, the only thing that knows the
                           transport) stream.ts (SSE parsing) Turns/Composer/Header
