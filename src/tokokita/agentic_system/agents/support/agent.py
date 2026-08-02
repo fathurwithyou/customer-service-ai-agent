@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic_ai import Agent
 
 from ...capabilities.catalog.capability import ACCESS as CATALOG_ACCESS
@@ -54,9 +52,12 @@ TOOL_ACCESS = {
 }
 
 
-def build_agent(settings: Settings, *, model: Any | None = None) -> Agent[SupportDeps, str]:
+def build_agent(settings: Settings) -> Agent[SupportDeps, str]:
+    """No `model` parameter: a test swaps it with `agent.override(model=...)`, which is the
+    framework's own seam and keeps the test out of the composition root.
+    """
     agent = Agent(
-        model if model is not None else build_model(settings),
+        build_model(settings),
         deps_type=SupportDeps,
         output_type=str,
         retries=settings.tool_retries,

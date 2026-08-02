@@ -1,7 +1,9 @@
 """Stream a turn as server-sent events.
 
-One handler feeds a queue because `event_stream_handler` is a callback and cannot yield into
-the response; that also preserves the run's ordering of tool activity and text.
+`agent.run_stream_events` is the framework's own event stream, so this is a plain `async for`
+over the run -- no queue, no background task, and the ordering of tool activity against text is
+the run's own. It is a context manager because a client that disconnects mid-answer stops
+iterating, and the run has to be torn down deterministically when that happens.
 
 Deltas are coalesced to words so the client animates a word at a time, not a character. The
 outcome is only known after the run, so it arrives in a final `done` event.
@@ -9,20 +11,18 @@ outcome is only known after the run, so it arrives in a final `done` event.
 
 from __future__ import annotations
 
-import asyncio
 import json
 from collections.abc import AsyncIterator
-from typing import Any
 
 import logfire
-from pydantic_ai import Agent, RunContext, capture_run_messages
+from pydantic_ai import Agent, AgentRunResultEvent, capture_run_messages
 from pydantic_ai.messages import FunctionToolCallEvent, PartDeltaEvent, TextPartDelta
 
 from ...shared import telemetry
 from ...shared.database import Sessions, session_scope
 from ...shared.settings import Settings
 from .deps import SupportDeps
-from .runner import FALLBACK, finish, limits, prepare, salvage
+from .runner import FALLBACK, finish, prepare, run_args, salvage
 
 
 def event(name: str, data: dict) -> str:
@@ -46,24 +46,6 @@ async def stream_turn(
         customer = turn.deps.customer
         yield event("start", {"customer_name": customer.full_name if customer else None})
 
-        queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
-
-        async def on_event(_: RunContext[SupportDeps], events: Any) -> None:
-            held = ""
-            async for item in events:
-                if isinstance(item, FunctionToolCallEvent):
-                    label = activity.get(item.part.tool_name)
-                    if label:
-                        await queue.put(("tool", {"label": label}))
-                elif isinstance(item, PartDeltaEvent) and isinstance(item.delta, TextPartDelta):
-                    held += item.delta.content_delta
-                    cut = held.rfind(" ")
-                    if cut != -1:
-                        await queue.put(("delta", {"text": held[: cut + 1]}))
-                        held = held[cut + 1 :]
-            if held:
-                await queue.put(("delta", {"text": held}))
-
         with logfire.span("chat turn") as span, capture_run_messages() as captured:
             telemetry.describe_turn(
                 session_id=session_id,
@@ -72,27 +54,26 @@ async def stream_turn(
                 signals=turn.deps.escalation_signals,
                 model=settings.model_name,
             )
-
-            async def run() -> Any:
-                try:
-                    return await agent.run(
-                        message,
-                        deps=turn.deps,
-                        message_history=turn.history,
-                        conversation_id=session_id,
-                        metadata=turn.metadata,
-                        usage_limits=limits(settings),
-                        event_stream_handler=on_event,
-                    )
-                finally:
-                    await queue.put(None)
-
-            task = asyncio.create_task(run())
-            while (item := await queue.get()) is not None:
-                yield event(*item)
-
+            held = ""
             try:
-                result = await task
+                async with agent.run_stream_events(
+                    message, **run_args(turn, session_id=session_id, settings=settings)
+                ) as events:
+                    async for item in events:
+                        if isinstance(item, FunctionToolCallEvent):
+                            if label := activity.get(item.part.tool_name):
+                                yield event("tool", {"label": label})
+                        elif isinstance(item, PartDeltaEvent) and isinstance(
+                            item.delta, TextPartDelta
+                        ):
+                            held += item.delta.content_delta
+                            if (cut := held.rfind(" ")) != -1:
+                                yield event("delta", {"text": held[: cut + 1]})
+                                held = held[cut + 1 :]
+                        elif isinstance(item, AgentRunResultEvent):
+                            result = item.result
+                if held:
+                    yield event("delta", {"text": held})
             except Exception:  # noqa: BLE001
                 span.set_attribute("failed", True)
                 await salvage(turn, captured, session_id)

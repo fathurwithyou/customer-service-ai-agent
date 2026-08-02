@@ -61,9 +61,5 @@ def outcome(messages: list[ModelMessage]) -> tuple[bool, int | None]:
         elif isinstance(message, ModelRequest):
             for part in message.parts:
                 if isinstance(part, ToolReturnPart) and part.tool_name == "create_ticket":
-                    content = part.content
-                    if isinstance(content, dict) and "ticket_id" in content:
-                        ticket_id = content["ticket_id"]
-                    elif hasattr(content, "ticket_id"):
-                        ticket_id = content.ticket_id
+                    ticket_id = part.content.ticket_id
     return escalated, ticket_id

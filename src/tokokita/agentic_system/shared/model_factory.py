@@ -15,7 +15,7 @@ def build_model(settings: Settings) -> Any:
     if settings.groq_api_key is None:
         return "test"
 
-    # No overlap: every tool shares one aiosqlite connection.
+    # No overlap: every tool in a turn shares one AsyncSession, which is not concurrency-safe.
     # reasoning_format keeps a thinking model's analysis out of the text channel, where it
     # never parses as a tool call. GroqModel is chosen because this knob is typed here.
     model_settings = GroqModelSettings(parallel_tool_calls=False)

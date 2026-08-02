@@ -158,8 +158,7 @@ def setup_observability(settings: Settings, app: FastAPI) -> None:
             additional_span_processors=span_processors(settings),
         )
         logfire.instrument_pydantic_ai(version=5)
-        # Makes the SDK's 429 retries visible. instrument_sqlite3 was dropped: it emits
-        # nothing for aiosqlite, which runs on a worker thread.
+        # Makes the SDK's 429 retries visible -- a rate limit once read as a connection error.
         logfire.instrument_httpx(capture_headers=False)
         logfire.instrument_sqlalchemy()
         # "failure", not "all": successful validations say nothing and bury the real spans.

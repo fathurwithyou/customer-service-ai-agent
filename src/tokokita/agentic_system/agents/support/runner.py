@@ -11,6 +11,7 @@ response outlives dependency teardown, and both paths should behave the same way
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import logfire
 from pydantic_ai import Agent, UsageLimits, capture_run_messages
@@ -39,7 +40,7 @@ FALLBACK = AgentReply(
 
 
 @dataclass
-class Turn:
+class TurnContext:
     store: MessageStore
     history: list[ModelMessage]
     deps: SupportDeps
@@ -73,12 +74,12 @@ async def classify(session: AsyncSession, message: str, customer: Customer | Non
 
 async def prepare(
     session: AsyncSession, *, session_id: str, message: str, customer_hint: str | None
-) -> Turn:
+) -> TurnContext:
     store = MessageStore(session)
     history = await store.load(session_id)
     customer = await resolve_customer(session, customer_hint)
     signals = await classify(session, message, customer)
-    return Turn(
+    return TurnContext(
         store=store,
         history=history,
         deps=SupportDeps(session=session, customer=customer, escalation_signals=signals),
@@ -92,14 +93,23 @@ async def prepare(
     )
 
 
-def limits(settings: Settings) -> UsageLimits:
-    return UsageLimits(
-        request_limit=settings.request_limit,
-        total_tokens_limit=settings.total_tokens_limit,
-    )
+def run_args(turn: TurnContext, *, session_id: str, settings: Settings) -> dict[str, Any]:
+    """Every argument both entry points hand the agent. Kept in one place because a difference
+    between them would be a difference in behaviour that no test would name.
+    """
+    return {
+        "deps": turn.deps,
+        "message_history": turn.history,
+        "conversation_id": session_id,
+        "metadata": turn.metadata,
+        "usage_limits": UsageLimits(
+            request_limit=settings.request_limit,
+            total_tokens_limit=settings.total_tokens_limit,
+        ),
+    }
 
 
-async def finish(turn: Turn, result, *, session_id: str, message: str) -> AgentReply:
+async def finish(turn: TurnContext, result, *, session_id: str, message: str) -> AgentReply:
     escalated, ticket_id = transcript.outcome(result.all_messages())
     reply = AgentReply(
         message=result.output,
@@ -120,7 +130,7 @@ async def finish(turn: Turn, result, *, session_id: str, message: str) -> AgentR
     return reply
 
 
-async def salvage(turn: Turn, captured: list[ModelMessage], session_id: str) -> None:
+async def salvage(turn: TurnContext, captured: list[ModelMessage], session_id: str) -> None:
     """Keep what a crashed run produced -- without this the turn vanishes from the record.
 
     `capture_run_messages` hands back the history it was given as well, so the new messages are
@@ -155,12 +165,7 @@ async def run_turn(
             )
             try:
                 result = await agent.run(
-                    message,
-                    deps=turn.deps,
-                    message_history=turn.history,
-                    conversation_id=session_id,
-                    metadata=turn.metadata,
-                    usage_limits=limits(settings),
+                    message, **run_args(turn, session_id=session_id, settings=settings)
                 )
             except Exception:  # noqa: BLE001
                 # A customer-facing endpoint must never answer with a stack trace.
