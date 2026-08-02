@@ -3,11 +3,12 @@ from __future__ import annotations
 from pydantic_ai.capabilities import Capability
 
 from ...guardrails.access_levels import AccessLevel
+from ...shared.activity import Activity
 from .tools import create_return
 
 ACCESS = {"create_return": AccessLevel.VERIFIED_CUSTOMER}
 
-ACTIVITY = {"create_return": "Menyiapkan pengajuan pengembalian"}
+ACTIVITY = {"create_return": Activity(label="Menyiapkan pengajuan pengembalian", icon="undo")}
 
 returns_capability = Capability(
     id="returns",

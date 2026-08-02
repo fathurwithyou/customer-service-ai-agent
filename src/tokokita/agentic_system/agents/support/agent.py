@@ -21,6 +21,7 @@ from ...capabilities.tickets.capability import ACTIVITY as TICKETS_ACTIVITY
 from ...capabilities.tickets.capability import tickets_capability
 from ...guardrails.escalation import escalation_is_honoured
 from ...guardrails.identity_gate import IdentityGate
+from ...shared.activity import Activity
 from ...shared.model_factory import build_model
 from ...shared.settings import Settings
 from .deps import SupportDeps
@@ -35,7 +36,7 @@ CAPABILITIES = [
     tickets_capability,
 ]
 
-TOOL_ACTIVITY = {
+TOOL_ACTIVITY: dict[str, Activity] = {
     **CUSTOMERS_ACTIVITY,
     **CATALOG_ACTIVITY,
     **ORDERS_ACTIVITY,

@@ -13,6 +13,7 @@ import logfire
 from pydantic_ai import Agent, AgentRunResultEvent, capture_run_messages
 from pydantic_ai.messages import FunctionToolCallEvent, PartDeltaEvent, TextPartDelta
 
+from ...shared.activity import Activity
 from ...shared.database import Sessions, session_scope
 from ...shared.settings import Settings
 from .deps import SupportDeps
@@ -32,7 +33,7 @@ async def stream_turn(
     message: str,
     customer_hint: str | None,
     settings: Settings,
-    activity: dict[str, str],
+    activity: dict[str, Activity],
 ) -> AsyncIterator[str]:
     async with session_scope(sessions) as session:
         intake = await Intake.prepare(
@@ -50,8 +51,8 @@ async def stream_turn(
                 ) as events:
                     async for item in events:
                         if isinstance(item, FunctionToolCallEvent):
-                            if label := activity.get(item.part.tool_name):
-                                yield event("tool", {"label": label})
+                            if step := activity.get(item.part.tool_name):
+                                yield event("tool", step.model_dump())
                         elif isinstance(item, PartDeltaEvent) and isinstance(
                             item.delta, TextPartDelta
                         ):

@@ -1,96 +1,163 @@
+/* Light only. The palette is warm rather than blue-grey so the green accent reads as a brand
+   colour instead of a status colour, and long prose stays comfortable to read. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --ease-out: cubic-bezier(.22,.61,.36,1);
-  --line: color-mix(in srgb, currentColor 14%, transparent);
-  --faint: color-mix(in srgb, currentColor 5%, transparent);
-  --accent: #2f7d5a;
+  --bg: #fbfaf8;
+  --card: #fff;
+  --ink: #1d2024;
+  --ink2: #5b6169;
+  --ink3: #8b9198;
+  --line: #e6e2dc;
+  --faint: #f3f1ed;
+  --accent: #1f7a55;
+  --accent-soft: #eaf4ef;
+  --shadow: 0 1px 2px rgb(28 30 33 / .05), 0 8px 24px -12px rgb(28 30 33 / .16);
 }
 * { box-sizing: border-box; }
-body { font: 15px/1.6 system-ui, sans-serif; max-width: 44rem; margin: 0 auto;
-       padding: 2rem 1rem 7rem; }
+html, body { background: var(--bg); }
+body { font: 15.5px/1.68 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+       color: var(--ink); max-width: 46rem; margin: 0 auto; padding: 2.2rem 1.1rem 8rem;
+       -webkit-font-smoothing: antialiased; }
+svg { width: 1em; height: 1em; display: block; }
 
-header { display: flex; align-items: baseline; gap: .5rem; margin-bottom: 1.5rem; }
-h1 { font-size: .95rem; font-weight: 600; margin: 0; opacity: .55; }
-.who { font-size: .78rem; opacity: .6; }
+/* ---------- header ---------- */
+header { display: flex; align-items: center; gap: .55rem; margin-bottom: 1.7rem;
+         animation: rise .4s var(--ease-out) both; }
+h1 { font-size: .95rem; font-weight: 620; margin: 0; letter-spacing: -.01em; }
+.who { font-size: .78rem; color: var(--ink3); }
+.who.known { color: var(--accent); background: var(--accent-soft);
+             padding: .12rem .5rem; border-radius: 1rem; font-weight: 550; }
+.reset { margin-left: auto; font: inherit; font-size: .76rem; color: var(--ink2);
+         background: var(--card); cursor: pointer; border: 1px solid var(--line);
+         border-radius: 1rem; padding: .28rem .75rem;
+         transition: border-color .18s, color .18s, transform .12s var(--ease-out); }
+.reset:hover { color: var(--ink); border-color: var(--ink3); }
+.reset:active { transform: scale(.96); }
 
+/* ---------- turns ---------- */
 .log { display: flex; flex-direction: column; }
-.customer { align-self: flex-end; max-width: 82%; margin: 14px 0 18px;
-            background: var(--faint); border: 1px solid var(--line);
-            border-radius: 14px 14px 4px 14px; padding: .55rem .85rem;
-            animation: rise .3s var(--ease-out) both; }
-.agent { margin: 4px 0 20px; animation: rise .3s var(--ease-out) both; }
-@keyframes rise { from { opacity: 0; transform: translateY(7px) } to { opacity: 1; transform: none } }
+/* the follow target stops above the fixed composer instead of under it */
+.end { scroll-margin-bottom: 5.5rem; }
+.customer { align-self: flex-end; max-width: 80%; margin: 16px 0 22px;
+            background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+            border-radius: 15px 15px 5px 15px; padding: .6rem .9rem;
+            animation: rise .34s var(--ease-out) both; }
+.agent { margin: 2px 0 26px; animation: rise .34s var(--ease-out) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
 
 /* React keeps existing nodes across deltas, so only newly appended blocks run this --
    the earlier text stays put instead of re-blurring on every chunk. */
-.agent p, .agent li { animation: blurIn .42s var(--ease-out) both; }
-@keyframes blurIn { from { opacity: 0; filter: blur(4px) } to { opacity: 1; filter: blur(0) } }
+.agent p, .agent li { animation: blurIn .45s var(--ease-out) both; }
+@keyframes blurIn { from { opacity: 0; filter: blur(5px) } to { opacity: 1; filter: blur(0) } }
 
-.caret { display: inline-block; width: 7px; height: 1em; vertical-align: -2px;
-         margin-left: 2px; background: var(--accent); border-radius: 1px;
-         animation: caret 1s steps(1) infinite; }
+.caret { display: inline-block; width: 7px; height: 1em; vertical-align: -2px; margin-left: 3px;
+         background: var(--accent); border-radius: 1.5px; animation: caret 1s steps(1) infinite; }
 @keyframes caret { 50% { opacity: 0 } }
 
+.dots { display: inline-flex; gap: 5px; padding: 8px 0; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: .28;
+          animation: bloom 1.2s var(--ease-out) infinite;
+          animation-delay: calc(var(--i) * .14s); }
+@keyframes bloom { 30% { opacity: .9; transform: translateY(-3px) } }
 
+.badges { display: flex; gap: .4rem; margin-top: .75rem; flex-wrap: wrap; }
+.badge { font-size: .73rem; padding: .2rem .6rem; border-radius: 1rem; color: var(--ink2);
+         border: 1px solid var(--line); background: var(--card);
+         animation: rise .36s var(--ease-out) both; }
+.badge.esc { border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+             color: var(--accent); background: var(--accent-soft); font-weight: 550; }
 
-              opacity: .3; animation: bloom 1.15s var(--ease-out) infinite;
-              animation-delay: calc(var(--i) * .13s); }
-@keyframes bloom { 30% { opacity: .85; transform: translateY(-3px) } }
+/* ---------- work group ---------- */
+.work { margin: 0 0 14px; }
+.whead { display: inline-flex; align-items: center; gap: .5rem; padding: 5px 0;
+         background: none; border: 0; color: inherit; font: inherit; cursor: pointer; }
+.wtitle { font-size: .81rem; color: var(--ink3); letter-spacing: .002em; }
+.wglyph { width: 15px; height: 15px; display: grid; place-items: center; font-size: 13px;
+          border-radius: 50%; color: var(--accent); }
+.wglyph.done { background: var(--accent-soft); }
+.wglyph.spin { border: 1.6px solid var(--line); border-top-color: var(--accent);
+               animation: spin .72s linear infinite; }
+@keyframes spin { to { transform: rotate(1turn) } }
+.pulse { animation: pulse 1.9s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45 } }
+.chev { width: 0; height: 0; border: 4px solid transparent; border-left-color: var(--ink3);
+        opacity: .6; transition: transform .26s var(--ease-out); }
+.work.open .chev { transform: rotate(90deg); }
 
-.badges { display: flex; gap: .4rem; margin-top: .6rem; flex-wrap: wrap; }
-.badge { font-size: .72rem; padding: .18rem .55rem; border-radius: 1rem;
-         border: 1px solid var(--line); opacity: .9;
-         animation: rise .34s var(--ease-out) both; }
-.badge.esc { border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); }
+/* grid-template-rows animates to a height nobody had to measure */
+.wbody { display: grid; grid-template-rows: 0fr; opacity: 0;
+         transition: grid-template-rows .3s var(--ease-out), opacity .22s; }
+.work.open .wbody { grid-template-rows: 1fr; opacity: 1; }
+.wbody > div { overflow: hidden; min-height: 0; }
 
-.agent p { margin: 0 0 .6rem; }
-.agent ul { margin: .3rem 0 .7rem; padding-left: 1.15rem; }
-.agent li { margin: .15rem 0; }
-.agent code { font-family: ui-monospace, monospace; font-size: .88em;
-              background: var(--faint); padding: .1rem .3rem; border-radius: 4px; }
-.agent strong { font-weight: 650; }
+.witems { list-style: none; margin: 0; padding: 3px 0 0; }
+.titem { display: flex; gap: .6rem; animation: rise .34s var(--ease-out) both; }
+.tcol { flex: 0 0 auto; width: 22px; display: flex; flex-direction: column; align-items: center; }
+.tico { width: 22px; height: 22px; display: grid; place-items: center; font-size: 12.5px;
+        border-radius: 50%; background: var(--faint); color: var(--ink3);
+        border: 1px solid var(--line); }
+.titem.busy .tico { color: var(--accent); background: var(--accent-soft);
+                    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+                    animation: halo 1.5s ease-in-out infinite; }
+@keyframes halo { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent) } }
+.tline { width: 1.5px; flex: 1; min-height: 8px; margin: 3px 0; background: var(--line);
+         border-radius: 1px; }
+.titem:last-child .tline { display: none; }
+.tbody { font-size: .845rem; color: var(--ink2); padding: 3px 0 9px; }
+.titem.busy .tbody { color: var(--ink); }
 
-form { position: fixed; inset: auto 0 0; background: color-mix(in srgb, Canvas 92%, transparent);
-       backdrop-filter: blur(12px); border-top: 1px solid var(--line);
-       padding: .8rem 1rem; display: flex; gap: .5rem; max-width: 44rem; margin: 0 auto; }
-input { flex: 1; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .6rem;
-        background: transparent; color: inherit; font: inherit;
-        transition: border-color .18s var(--ease-out); }
-input:focus { outline: 0; border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-.hint { width: 13rem; flex: none; }
-button { padding: .6rem 1.1rem; border: 0; border-radius: .6rem; font: inherit; font-weight: 550;
-         cursor: pointer; background: var(--accent); color: #fff;
-         transition: transform .12s var(--ease-out), opacity .18s; }
-button:active { transform: scale(.96); }
-button:disabled { opacity: .45; cursor: default; }
-
-@media (prefers-reduced-motion: reduce) {
-  .customer, .agent, .agent p, .agent li, .badge { animation: none }
-  .thinking i { animation: none; opacity: .5 }
-}
-
-.working { display: inline-flex; align-items: center; gap: 9px; padding: 6px 0; }
-.wlabel { font-size: .82rem; opacity: .55; animation: pulse 2s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .95 } }
-.dots { display: inline-flex; gap: 5px; }
-.dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor;
-          opacity: .3; animation: bloom 1.15s var(--ease-out) infinite;
-          animation-delay: calc(var(--i) * .13s); }
-@media (prefers-reduced-motion: reduce) {
-  .dots i, .wlabel { animation: none; opacity: .5 }
-}
+/* ---------- markdown ---------- */
+.agent p { margin: 0 0 .65rem; }
+.agent ul, .agent ol { margin: .35rem 0 .75rem; padding-left: 1.2rem; }
+.agent li { margin: .18rem 0; }
+.agent li::marker { color: var(--ink3); }
+.agent code { font-family: ui-monospace, "SF Mono", monospace; font-size: .87em;
+              background: var(--faint); padding: .12rem .35rem; border-radius: 5px; }
+.agent strong { font-weight: 640; color: var(--ink); }
+.agent a { color: var(--accent); text-underline-offset: 2px; }
+.agent h1, .agent h2, .agent h3 { font-size: 1em; font-weight: 650; margin: .9rem 0 .35rem; }
+.agent pre { background: var(--faint); padding: .65rem .85rem; border-radius: .6rem;
+             overflow-x: auto; margin: .45rem 0 .85rem; }
+.agent blockquote { margin: .45rem 0; padding-left: .85rem; border-left: 2px solid var(--line);
+                    color: var(--ink2); }
+.agent hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
 
 /* Tables arrive when the agent lists orders; they must scroll rather than widen the page. */
-.agent table { width: 100%; border-collapse: collapse; margin: .5rem 0 .9rem; font-size: .9rem;
+.agent table { width: 100%; border-collapse: collapse; margin: .55rem 0 .95rem; font-size: .89rem;
                display: block; overflow-x: auto; }
-.agent th, .agent td { padding: .4rem .6rem; text-align: left; white-space: nowrap;
+.agent th, .agent td { padding: .45rem .65rem; text-align: left; white-space: nowrap;
                        border-bottom: 1px solid var(--line); }
-.agent th { font-weight: 600; opacity: .7; font-size: .8rem; text-transform: uppercase;
-            letter-spacing: .03em; }
+.agent th { font-weight: 600; color: var(--ink3); font-size: .78rem; text-transform: uppercase;
+            letter-spacing: .04em; }
 .agent tbody tr:last-child td { border-bottom: 0; }
-.agent a { color: var(--accent); }
-.agent h1, .agent h2, .agent h3 { font-size: 1em; font-weight: 650; margin: .8rem 0 .3rem; }
-.agent pre { background: var(--faint); padding: .6rem .8rem; border-radius: .5rem;
-             overflow-x: auto; margin: .4rem 0 .8rem; }
-.agent blockquote { margin: .4rem 0; padding-left: .8rem; border-left: 2px solid var(--line);
-                    opacity: .8; }
+
+/* ---------- composer ---------- */
+form { position: fixed; inset: auto 0 0; background: color-mix(in srgb, var(--bg) 88%, transparent);
+       backdrop-filter: blur(14px); border-top: 1px solid var(--line);
+       padding: .85rem 1.1rem 1.1rem; display: flex; gap: .5rem;
+       max-width: 46rem; margin: 0 auto; }
+input { flex: 1; padding: .65rem .85rem; border: 1px solid var(--line); border-radius: .7rem;
+        background: var(--card); color: inherit; font: inherit;
+        transition: border-color .18s var(--ease-out), box-shadow .18s var(--ease-out); }
+input::placeholder { color: var(--ink3); }
+input:focus { outline: 0; border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+              box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+.hint { width: 13.5rem; flex: none; color: var(--ink2); }
+button { padding: .65rem 1.15rem; border: 0; border-radius: .7rem; font: inherit; font-weight: 560;
+         cursor: pointer; background: var(--accent); color: #fff; box-shadow: var(--shadow);
+         transition: transform .12s var(--ease-out), opacity .18s, filter .18s; }
+button:hover:not(:disabled) { filter: brightness(1.08); }
+button:active:not(:disabled) { transform: scale(.96); }
+button:disabled { opacity: .4; cursor: default; box-shadow: none; }
+
+@media (max-width: 560px) {
+  .hint { width: 8.5rem; }
+  .customer { max-width: 90%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer, .agent, .agent p, .agent li, .badge, .titem, header,
+  .dots i, .pulse, .wglyph.spin, .titem.busy .tico { animation: none }
+  .wbody, .chev { transition: none }
+}

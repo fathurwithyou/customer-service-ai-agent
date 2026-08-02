@@ -4,7 +4,9 @@ import { useConversation } from "./useConversation";
 export function Composer() {
   const { state, actions } = useConversation();
   const [message, setMessage] = useState("");
-  const [hint, setHint] = useState("andi@example.com");
+  const [hint, setHint] = useState(
+    () => localStorage.getItem("tokokita.hint") ?? "andi@example.com",
+  );
 
   return (
     <form
@@ -19,7 +21,10 @@ export function Composer() {
       <input
         className="hint"
         value={hint}
-        onChange={(e) => setHint(e.target.value)}
+        onChange={(e) => {
+          setHint(e.target.value);
+          localStorage.setItem("tokokita.hint", e.target.value);
+        }}
         placeholder="email / telepon"
         aria-label="Identitas pelanggan"
       />

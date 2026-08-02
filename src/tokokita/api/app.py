@@ -126,7 +126,7 @@ def create_app(settings: Settings | None = None, *, sessions: Sessions | None = 
 
     @app.get("/chat/{session_id}", response_model=list[Turn])
     async def history(session_id: str, session: Db) -> list[Turn]:
-        return read(await MessageStore(session).load(session_id))
+        return read(await MessageStore(session).load(session_id), TOOL_ACTIVITY)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
