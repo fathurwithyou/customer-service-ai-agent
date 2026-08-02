@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from ...shared.from_row import FromRow
 
 
-class ReturnRequest(BaseModel):
+class ReturnRequest(FromRow):
     return_id: int
     order_id: int
     product_id: int

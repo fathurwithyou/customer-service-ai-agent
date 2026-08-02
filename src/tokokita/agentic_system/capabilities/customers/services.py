@@ -18,4 +18,4 @@ class CustomerLookup:
                 or_(tables.Customer.email.ilike(contact), tables.Customer.phone == contact)
             )
         )
-        return Customer(customer_id=row.customer_id, full_name=row.full_name) if row else None
+        return Customer.model_validate(row) if row else None

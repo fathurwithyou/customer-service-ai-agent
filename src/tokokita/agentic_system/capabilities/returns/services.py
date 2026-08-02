@@ -46,10 +46,4 @@ class ReturnService:
         )
         self._session.add(row)
         await self._session.commit()
-        return ReturnRequest(
-            return_id=row.return_id,
-            order_id=order_id,
-            product_id=product_id,
-            reason=reason,
-            refund_amount=refund,
-        )
+        return ReturnRequest.model_validate(row)

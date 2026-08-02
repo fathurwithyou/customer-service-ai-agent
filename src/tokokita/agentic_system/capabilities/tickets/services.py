@@ -29,13 +29,7 @@ class TicketService:
         )
         self._session.add(row)
         await self._session.commit()
-        return Ticket(
-            ticket_id=row.ticket_id,
-            order_id=order_id,
-            category=category,
-            priority=priority,
-            subject=subject,
-        )
+        return Ticket.model_validate(row)
 
     async def escalate(self, ticket_id: int, customer_id: int) -> bool:
         result = await self._session.execute(

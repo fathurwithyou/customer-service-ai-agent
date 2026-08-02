@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel
+from ...shared.from_row import FromRow
 
 
 class TicketCategory(StrEnum):
@@ -20,7 +20,7 @@ class TicketPriority(StrEnum):
     URGENT = "urgent"
 
 
-class Ticket(BaseModel):
+class Ticket(FromRow):
     ticket_id: int
     order_id: int | None = None
     category: TicketCategory

@@ -22,4 +22,4 @@ class CatalogService:
         else:
             return None
         row = await self._session.scalar(query)
-        return Product.model_validate(row, from_attributes=True) if row else None
+        return Product.model_validate(row) if row else None

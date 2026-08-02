@@ -4,18 +4,12 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ....data import tables
 from ...shared.results import ActionResult, ResultCode
 from . import policies
-from .schemas import (
-    OrderDetail,
-    OrderItem,
-    OrderStatus,
-    OrderSummary,
-    PaymentStatus,
-    Shipment,
-)
+from .schemas import OrderDetail, OrderStatus, OrderSummary, Shipment
 
 
 class OrderService:
@@ -33,50 +27,17 @@ class OrderService:
             .where(tables.Order.customer_id == customer_id)
             .order_by(tables.Order.order_id)
         )
-        return [
-            OrderSummary(
-                order_id=r.order_id,
-                order_date=str(r.order_date),
-                status=OrderStatus(r.status),
-                total_amount=r.total_amount or 0.0,
-            )
-            for r in rows
-        ]
+        return [OrderSummary.model_validate(row) for row in rows]
 
     async def detail(self, order_id: int, customer_id: int) -> OrderDetail | None:
-        order = await self._session.scalar(self._owned(order_id, customer_id))
-        if order is None:
-            return None
-        payment = await self._session.scalar(
-            select(tables.Payment).where(tables.Payment.order_id == order_id)
-        )
-        lines = (
-            await self._session.execute(
-                select(tables.OrderItem, tables.Product.name)
-                .join(tables.Product, tables.Product.product_id == tables.OrderItem.product_id)
-                .where(tables.OrderItem.order_id == order_id)
+        order = await self._session.scalar(
+            self._owned(order_id, customer_id).options(
+                selectinload(tables.Order.items).selectinload(tables.OrderItem.product),
+                selectinload(tables.Order.shipment),
+                selectinload(tables.Order.payment),
             )
-        ).all()
-        return OrderDetail(
-            order_id=order.order_id,
-            status=OrderStatus(order.status),
-            order_date=str(order.order_date),
-            total_amount=order.total_amount or 0.0,
-            shipping_address=order.shipping_address,
-            payment_method=order.payment_method,
-            payment_status=PaymentStatus(payment.status) if payment and payment.status else None,
-            paid_at=payment.paid_at if payment else None,
-            items=[
-                OrderItem(
-                    product_id=line.product_id,
-                    product_name=name,
-                    quantity=line.quantity,
-                    unit_price=line.unit_price,
-                )
-                for line, name in lines
-            ],
-            shipment=await self.shipment(order_id, customer_id),
         )
+        return OrderDetail.model_validate(order) if order else None
 
     async def shipment(self, order_id: int, customer_id: int) -> Shipment | None:
         row = await self._session.scalar(
@@ -86,7 +47,7 @@ class OrderService:
                 tables.Shipment.order_id == order_id, tables.Order.customer_id == customer_id
             )
         )
-        return Shipment.model_validate(row, from_attributes=True) if row else None
+        return Shipment.model_validate(row) if row else None
 
     async def change_address(
         self, order_id: int, customer_id: int, address: str

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from ...shared.from_row import FromRow
 
 
-class Product(BaseModel):
+class Product(FromRow):
     product_id: int
     name: str
     category: str | None = None
