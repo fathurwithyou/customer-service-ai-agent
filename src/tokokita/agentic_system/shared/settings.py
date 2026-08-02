@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     # Room to recover from a stale order id, not enough for a runaway loop.
     tool_retries: int = 2
 
+    # A support turn that needs more than this is looping, not working.
+    request_limit: int = 8
+    total_tokens_limit: int = 60_000
+
     # Handed to the Groq SDK, which retries 429/5xx with backoff and honours `Retry-After`.
     http_retries: int = 3
     request_timeout: float = 60.0
@@ -26,7 +30,7 @@ class Settings(BaseSettings):
     # fails to parse (gpt-oss-20b: 3/3 vs 1/3). Empty for a non-reasoning model.
     reasoning_format: Literal["hidden", "raw", "parsed"] | None = "parsed"
 
-    database_path: str = "./tokokita.db"
+    database_url: str = "sqlite+aiosqlite:///./tokokita.db"
 
     # Both optional: the stack runs with no credentials.
     logfire_token: SecretStr | None = None

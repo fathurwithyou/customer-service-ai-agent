@@ -6,28 +6,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...capabilities.catalog.services import CatalogService
 from ...capabilities.customers.schemas import Customer
 from ...capabilities.customers.services import CustomerLookup
 from ...capabilities.orders.services import OrderService
 from ...capabilities.returns.services import ReturnService
 from ...capabilities.tickets.services import TicketService
-from ...shared.database import Database
 
 
 @dataclass
 class SupportDeps:
-    db: Database
+    session: AsyncSession
     customer: Customer | None = None
     escalation_signals: list[str] = field(default_factory=list)
     forced_escalation: str | None = None
 
     def __post_init__(self) -> None:
-        self.customers = CustomerLookup(self.db)
-        self.orders = OrderService(self.db)
-        self.returns = ReturnService(self.db)
-        self.tickets = TicketService(self.db)
-        self.catalog = CatalogService(self.db)
+        self.customers = CustomerLookup(self.session)
+        self.orders = OrderService(self.session)
+        self.returns = ReturnService(self.session)
+        self.tickets = TicketService(self.session)
+        self.catalog = CatalogService(self.session)
 
     @property
     def escalation_required(self) -> bool:
