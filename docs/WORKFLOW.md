@@ -195,7 +195,8 @@ fact has exactly one home.
 
 - **Identification, not authentication.** The schema has no OTP or password, so a matching
   email proves knowledge of an email. Documented in `DESIGN.md` §4 rather than dressed up.
-- **Conversation history is a row per message in Postgres**, trimmed to a trailing window. It
+- **Conversation history is a row per message in Postgres**, with the model's view trimmed to
+  a trailing window by a `ProcessHistory` capability. It
   survives a redeploy and a second worker, which an in-process dict does not; what it does not
   do is summarise, so a very long conversation loses its oldest turns outright.
 - **Grounding is enforced by construction, not verified per claim.** Tools are the only route

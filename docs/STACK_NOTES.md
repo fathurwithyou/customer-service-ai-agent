@@ -405,14 +405,16 @@ logfire.instrument_fastapi(app, *, capture_headers=False, request_attributes_map
 logfire.instrument_pydantic(record='all', include=(), exclude=())
 logfire.instrument_pydantic_ai(obj=None, *, include_content=None, version=None, ...)
 logfire.instrument_sqlite3(conn=None)
+logfire.instrument_sqlalchemy(engine=None)
 ```
 
-⟲ `instrument_sqlalchemy()` replaced this and does emit query spans (`connect`, `SELECT ...`),
-verified with an in-memory exporter before being wired in.
+`instrument_sqlalchemy()` is enabled and verified: `connect` and `SELECT ...` spans, checked
+against an `InMemorySpanExporter` before being wired in — given the history below, measuring
+first was the point.
 
-⟲ `instrument_sqlite3` was wired up and removed: it emitted **zero spans** — none for
-`aiosqlite`, which runs `sqlite3` on a worker thread, and none for plain `sqlite3` in this
-environment either. The `conn=None` global-patch form was the one tried.
+⟲ `instrument_sqlite3` was wired up and removed while the database was still SQLite: it emitted
+**zero spans** — none for `aiosqlite`, which runs `sqlite3` on a worker thread, and none for
+plain `sqlite3` in this environment either. The `conn=None` global-patch form was the one tried.
 
 `instrument_httpx(capture_headers=False)` is the one that earns its place and is verified
 working: **3 spans per turn**. It is what makes the Groq SDK's own 429 retries visible — exactly
@@ -624,16 +626,28 @@ which is most of what the Sessions view is for. Note that `session.id` matches L
 `session` scrub pattern, so it needs a `ScrubbingOptions(callback=...)` that returns the value
 for that path or it is redacted before export (§8).
 
-### `event_stream_handler` is a callback, not a generator
+### `event_stream_handler` is a callback — and `run_stream_events` is the way around it
 
 ```python
 EventStreamHandler = Callable[[RunContext[AgentDepsT], AsyncIterable[Event]], Awaitable[None]]
+
+Agent.run_stream_events(...) -> AbstractAsyncContextManager[
+    AsyncIterator[AgentStreamEvent | AgentRunResultEvent[Any]]
+]
 ```
 
-It returns `Awaitable[None]`, so it **cannot yield into a response**. Streaming to SSE means the
-handler pushes onto an `asyncio.Queue` while the run executes as a task, and the endpoint drains
-the queue — which is also what keeps tool activity and text deltas in the order the run produced
-them.
+The handler returns `Awaitable[None]`, so it **cannot yield into a response**.
+
+⟲ The first version therefore pushed onto an `asyncio.Queue` from inside the handler, ran the
+agent as a task, and drained the queue from the SSE generator. `run_stream_events` is the
+library's own answer to exactly that: it wraps `run`, uses `event_stream_handler` internally, and
+hands back an async iterator ending in an `AgentRunResultEvent` that carries the `AgentRunResult`.
+The queue, the task and its sentinel all went away, and ordering between tool activity and text
+is the run's own rather than something the queue preserved.
+
+It is an async **context manager** deliberately: the background run starts on first iteration,
+and stopping early — a customer closing the tab mid-answer — tears the run down instead of
+leaking it.
 
 ---
 

@@ -416,7 +416,7 @@ These were built and removed. Recorded so they are not rediscovered as good idea
 | **`logfire.instrument_sqlite3`** | Zero spans: `aiosqlite` runs `sqlite3` on a worker thread. `instrument_sqlalchemy` replaces it now that the engine is SQLAlchemy's, and it does emit real query spans. |
 | **`metadata=` on `agent.run` as a message field** | It reaches `RunContext.metadata` and the `invoke_agent` span, but `ModelMessage.metadata` stays `null` — so it is telemetry, not a substitute for the store's own columns. Verified against 2.22.0, not assumed. |
 | **Trusting `state == 'interrupted'` to mark a dead run** | The framework writes it when a *tool* is cancelled, not when the model call raises. A crashed run therefore looks `complete`. The window instead drops any run holding a tool call with no return. |
-| **An in-process dict for conversation history** | Lost every conversation on redeploy and wrong with a second worker. SQLite was already open, so the durable version cost a table (§10). |
+| **An in-process dict for conversation history** | Lost every conversation on redeploy and wrong with a second worker. The durable version costs one table (§10). |
 
 ---
 
@@ -470,8 +470,9 @@ keeps the whole stack runnable with no credentials at all.
 
 ## 9. Testing strategy
 
-The point of §3–§5 is that the guarantees are testable without an LLM. 53 tests, no API key,
-under a second.
+The point of §3–§5 is that the guarantees are testable without an LLM. 62 tests, no API key,
+a few seconds. They need Postgres up (`docker compose up -d db`) and own their own database:
+the suite drops and recreates its schema, so it must never point at the demo data.
 
 - **`test_services.py`** — the service layer with no model in sight: customer scoping (Bunga's
   order is invisible to Andi), refund derived from `order_items`, Pydantic validation rejecting
@@ -486,6 +487,12 @@ under a second.
   so the assertions are about our code rather than about what a sampled completion happened to
   say. One test scripts a model that escalates but never says so, and asserts the response
   reports `escalated=True` and the right `ticket_id` anyway — the §5.3 claim, at the HTTP layer.
+  Another crashes the model mid-conversation and asserts the salvaged run is stored once rather
+  than re-inserting the history it was handed.
+- **`test_message_store.py`** — the persistence contract: append rather than rewrite, round-trip
+  through the framework's own format, sessions kept apart, system prompts stripped.
+- **`test_history.py`** — the model-facing window: whole runs only, and never a run holding a
+  tool call with no return (§10).
 
 The tool surface assertion uses `TestModel(call_tools=[])` plus
 `model.last_model_request_parameters.function_tools` to check *which tools were offered* before

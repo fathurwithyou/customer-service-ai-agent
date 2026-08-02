@@ -22,13 +22,14 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The web UI additional
 and [pnpm](https://pnpm.io/).
 
 ```bash
-uv sync                       # install
-cp .env.example .env          # then put your Groq key in it
-docker compose up -d db               # Postgres 17 on localhost:5433
-uv run python -m tokokita.data.seed   # create the schema and load the dummy data
+uv sync                             # install
+cp .env.example .env                # then put your Groq key in it
 
-pnpm --dir frontend install   # the UI
-pnpm --dir frontend build     # -> src/tokokita/api/static/
+docker compose up -d                # Postgres on :5433
+uv run python -m tokokita.data.seed # create the schema and load the dummy data
+
+pnpm --dir frontend install         # the UI
+pnpm --dir frontend build           # -> src/tokokita/api/static/
 ```
 
 `src/tokokita/api/static/` is a build artefact and is **gitignored**, so a fresh clone has no
@@ -54,17 +55,22 @@ All are optional except the Groq key, and all are prefixed `TOKOKITA_`.
 | `TOKOKITA_LOGFIRE_TOKEN` | — | Set ⇒ traces also go to Logfire cloud. |
 | `TOKOKITA_LOGFIRE_ENVIRONMENT` | `development` | Logfire environment tag. |
 | `TOKOKITA_TOOL_RETRIES` | `2` | Retries per tool call before the turn aborts. |
+| `TOKOKITA_REQUEST_LIMIT` | `8` | Model requests allowed in one turn. A support turn that needs more is looping. |
+| `TOKOKITA_TOTAL_TOKENS_LIMIT` | `60000` | Token ceiling for one turn, enforced by `UsageLimits`. |
 | `TOKOKITA_HTTP_RETRIES` | `3` | Passed to the Groq SDK, which honours `Retry-After`. |
 | `TOKOKITA_REQUEST_TIMEOUT` | `60.0` | Seconds, per Groq request. |
 
 ## Running
 
 ```bash
-# 1. Phoenix (optional but recommended -- this is where the traces are readable)
+docker compose up -d      # the database
+
+# Phoenix -- optional, but this is where the traces are readable. Deliberately not in
+# docker-compose.yml: it is shared across projects and holds trace history, so it should not
+# be torn down and recreated by this repo's compose lifecycle.
 docker run -d --rm -p 6006:6006 -p 4317:4317 --name tokokita-phoenix \
   arizephoenix/phoenix:latest
 
-# 2. The API, with the built UI served from it
 uv run uvicorn tokokita.api.app:create_app --factory --reload
 ```
 
@@ -136,8 +142,10 @@ never ran, because it is never asked to.
 `customer_hint` accepts an email, a phone number, or an order id — but **only email or phone
 verify**. An order number is printed on the parcel, so treating it as a credential would make a
 shipping label a password. The turn history is persisted per `session_id` to the `conversation_messages`
-table (the framework's own wire format, last 40 messages, system prompts stripped) and replayed
-on the next request; turns are additionally written to `ticket_messages` when the customer has
+table -- one row per `ModelMessage`, the body in a `JSONB` column typed as `Mapped[ModelMessage]`
+so Pydantic validates it at the column. Everything is kept; the *model* is shown the last twelve
+complete runs, which is a `ProcessHistory` capability rather than a clause in the load query. On
+the next request that window is replayed; turns are additionally written to `ticket_messages` when the customer has
 an open ticket.
 
 ### `POST /chat/stream`
@@ -198,7 +206,8 @@ and 8), Citra is `citra@example.com` and has none.
 ## Tests
 
 ```bash
-uv run pytest          # 53 tests, no API key needed, ~0.3s
+docker compose up -d db   # the suite owns tokokita_test, created by the compose init script
+uv run pytest             # 62 tests, no API key needed, ~3s
 uv run ruff check .
 ```
 
@@ -214,7 +223,14 @@ the business rules are tested directly as pure functions.
   refused even if reached anyway, that an unclassified tool fails closed, and that only
   `get_customer` promotes a session.
 - `test_api.py` — the HTTP surface end to end with a scripted model, including that the outcome
-  fields are read from the transcript rather than claimed by the model.
+  fields are read from the transcript rather than claimed by the model, and that a run which
+  crashes mid-turn is persisted exactly once. Driven through `ASGITransport`, not `TestClient`:
+  the latter runs the app on a worker thread's event loop, and an asyncpg connection belongs to
+  the loop that opened it.
+- `test_message_store.py` — round-trips through the framework's own format, appends rather than
+  rewrites, keeps sessions apart, and strips system prompts.
+- `test_history.py` — the window: whole runs only, and never a run holding a tool call with no
+  return.
 
 ## Layout
 
