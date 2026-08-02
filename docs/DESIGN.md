@@ -53,7 +53,7 @@ Each layer is replaceable without touching its neighbours. Dependencies point st
 | Capabilities | `capabilities/*/capability.py`, `tools.py` | what the agent *can do*, whether it needs a verified customer, and what the customer is told while it runs | HTTP, SQL |
 | Services | `capabilities/*/services.py` | queries and business logic | the model, HTTP |
 | Domain | `capabilities/*/policies.py`, `schemas.py` | business rules, vocabulary | I/O of any kind |
-| Data | `shared/database.py`, `data/schema.sql`, `data/seed.sql` | persistence, ownership scoping | the agent |
+| Data | `shared/database.py`, `data/tables.py`, `data/seed.py` | engine, session scope, the schema itself | the agent |
 | Shared | `shared/` — `results.py`, `message_store.py`, `transcript.py`, `settings.py`, `model_factory.py` | outcome vocabulary, conversation state, configuration, the model seam | any one capability |
 | Observability | `shared/telemetry.py` | tracing, redaction | everything else |
 
@@ -94,13 +94,17 @@ without a fixture, a mock, or an API key, and it is why `tests/test_guardrails.p
 
 ## 3. Ownership as a data-layer invariant
 
-**Decision.** Every `Database` method that touches customer data takes `customer_id` as a
-required parameter and emits `... AND customer_id = ?`. There is no method that fetches an order,
-shipment, payment, return, or ticket without a customer scope, and the services above it carry
-the same parameter through.
+**Decision.** Every service method that touches customer data takes `customer_id` as a required
+parameter and puts it in the `WHERE` clause. There is no method that fetches an order, shipment,
+payment, return, or ticket without a customer scope.
+
+⟲ This used to be structurally enforced: a `Database` class with no unscoped method to call.
+Moving to SQLAlchemy sessions (§7) gave that up — a service holds an `AsyncSession` and could
+write an unscoped `select()`. The guarantee is now a convention plus `OrderService._owned`, and
+`tests/test_services.py` asserts the isolation directly rather than trusting it.
 
 ```python
-async def order_row(self, order_id: int, customer_id: int) -> Row | None:
+def _owned(self, order_id: int, customer_id: int):
     # customer_id is not a filter that callers may pass -- it is part of the identity of the
     # question. "Show me order 3" is not answerable; "show me Bunga's order 3" is.
 ```
@@ -390,7 +394,7 @@ model will fill.
 | **MCP** | The tool layer is cleanly separable. | MCP buys a *process boundary*. Here the tools are local functions over a local SQLite file. Adding MCP adds serialisation, a server lifecycle, and a new failure mode, and buys nothing. It becomes right the day the marketplace DB belongs to another team behind a service. |
 | **CodeMode** | Fewer round-trips is appealing. | It pays off when tool calls fan out combinatorially. A turn here is 2–4 calls. The Monty sandbox would be a dependency and a debugging surface with no round-trips to save. |
 | **Harness guardrails** | Purpose-built for exactly this. | Researched, never used, dependency removed; `agent.output_validator` provides the same enforcement. See §5.4. |
-| **SQLAlchemy** | Postgres portability, pooling. | The whole persistence seam is ~10 queries. The ORM layer would duplicate models that already exist as Pydantic models, and pooling is meaningless against local SQLite. `aiosqlite` + a repository *is* the swappable seam; the SQL is standard enough that Postgres is a driver change plus the dialect notes in the brief's appendix. |
+| ~~**SQLAlchemy**~~ ⟲ **reversed** | Originally rejected: ~10 queries, and pooling is meaningless against local SQLite. | The argument was about query volume and missed the real cost — a hand-rolled `Database` class is a persistence interface nobody else knows, and `schema.sql` was a second declaration of the same tables that could silently drift from the code reading them. SQLAlchemy 2.0 async is the interface people already know: `Base.metadata` *is* the schema, `session_scope` *is* the transaction boundary, and `instrument_sqlalchemy` gives DB spans that `instrument_sqlite3` never could. The price is stated in §3 — scoping is no longer structurally unreachable. |
 | **A `verified: bool` flag on `SupportDeps`, checked in tools** | Simplest thing that could work. | This is failure (a) verbatim. The flag is fine — `SupportDeps.customer` carries it — but the *checking* must not be per-tool. |
 | **A structured `output_type` for the whole reply** | One typed object, validated by the framework, is the Pydantic AI house style. | An output tool is one more thing the model can fail to call, and every field but `message` was the model restating what the runtime already knew. Measured worse on the hardest case; see §5.3. Structure that is *derived* costs the model nothing and cannot disagree with the run. |
 | **LLM-judge grounding on every reply** | Would catch all hallucination, not just tracking numbers. | A second model call per turn, non-deterministic, and unaffordable in the request path. Belongs in an offline eval suite (as in `crayon-rm-library/evals/`), not in `/chat`. Noted as future work. |
@@ -408,7 +412,9 @@ These were built and removed. Recorded so they are not rediscovered as good idea
 | **`get_customer` setting `ctx.deps.customer`** | A domain tool granting its own session the privilege it needs. Moved to `IdentityGate.after_tool_execute` so the security decision lives in the security layer. §4. |
 | **`groq_reasoning_format="hidden"`** | "hidden" only suppresses the reasoning; a thinking model still writes its analysis into the *content* channel when it decides no tool is needed, and Groq then fails to parse the response. `"parsed"` gives reasoning its own field and maps to a `ThinkingPart` (measured on `gpt-oss-20b`: parsed 3/3, hidden 1/3). |
 | **A tenacity retry transport** under the Groq client | Raising from inside an httpx transport hides the response from the SDK, so a 429 surfaced as "Connection error" and the rate limit became invisible. `AsyncGroq(max_retries=...)` honours `Retry-After` and raises a real `RateLimitError`. |
-| **`logfire.instrument_sqlite3`** | Zero spans: `aiosqlite` runs `sqlite3` on a worker thread. `instrument_httpx` is instrumented instead, and it is what makes the Groq SDK's own retries legible. |
+| **`logfire.instrument_sqlite3`** | Zero spans: `aiosqlite` runs `sqlite3` on a worker thread. `instrument_sqlalchemy` replaces it now that the engine is SQLAlchemy's, and it does emit real query spans. |
+| **`metadata=` on `agent.run` as a message field** | It reaches `RunContext.metadata` and the `invoke_agent` span, but `ModelMessage.metadata` stays `null` — so it is telemetry, not a substitute for the store's own columns. Verified against 2.22.0, not assumed. |
+| **Trusting `state == 'interrupted'` to mark a dead run** | The framework writes it when a *tool* is cancelled, not when the model call raises. A crashed run therefore looks `complete`. The window instead drops any run holding a tool call with no return. |
 | **An in-process dict for conversation history** | Lost every conversation on redeploy and wrong with a second worker. SQLite was already open, so the durable version cost a table (§10). |
 
 ---
@@ -433,9 +439,14 @@ same span is legible in both dashboards without a second provider fighting over 
 object on ingest and then crashes rendering it, and moves the same JSON to `input.value` where
 Phoenix renders it and its evaluators read it. Rediscovering that would have cost an afternoon.
 
-Beyond Pydantic AI and FastAPI the only instrumentor enabled is `instrument_httpx`, because it
-makes the Groq SDK's own 429 retries visible — precisely what was missing while a rate limit was
-being misread as a connection error (§7). `instrument_sqlite3` was tried and dropped.
+Beyond Pydantic AI and FastAPI, `instrument_httpx` is enabled because it makes the Groq SDK's own
+429 retries visible — precisely what was missing while a rate limit was being misread as a
+connection error (§7) — and `instrument_sqlalchemy` for query spans. `instrument_sqlite3` was
+tried and dropped before the move to SQLAlchemy.
+
+`conversation_id=session_id` on every run means the `session_id` column in the database and
+`gen_ai.conversation.id` on the span are the same string, so a row and its trace are one lookup
+apart.
 
 One non-obvious consequence of not using `phoenix.otel.register()`: it is what normally sets the
 `openinference.project.name` **resource** attribute, so without setting it ourselves every trace
@@ -497,7 +508,7 @@ failure rather than a bill. No test needs `GROQ_API_KEY`.
 kept in the framework's own format.
 
 The columns are only the fields pydantic-ai puts on *every* message — `kind`, `run_id`,
-`timestamp`, and the `conversation_id` we key on. Everything below that (`parts`, and the
+`state`, `timestamp`, and the `conversation_id` we key on. Everything below that (`parts`, and the
 eleven part types under them) stays in `payload`, serialised by `TypeAdapter(ModelMessage)`.
 That line is the whole design: **the framework owns the message shape, the database owns only
 what we query on.** Normalising parts into tables would buy nothing and cost a migration every
@@ -510,9 +521,26 @@ version rewrote the entire growing history on every turn.
 `sanitize_messages` strips system prompts before saving: instructions are re-injected on every
 run, so keeping them only grows the row and risks replaying a stale prompt.
 
+**The store keeps everything; the window is a capability.** Trimming used to happen in the load
+query, which quietly made the persistence layer responsible for a prompting decision. It is now
+`ProcessHistory(recent_runs)` in `agents/support/history.py` — the framework's own seam for
+"the database has the full history, the model sees part of it". The store is the audit record;
+`agent.py` decides what is worth sending.
+
 **The window is counted in runs, not messages.** Cutting at the 40th message can land between a
 tool call and its return and leave the model a dangling reference; a run is atomic, so dropping
-whole runs cannot. Storing `run_id` is what makes that expressible in SQL.
+whole runs cannot.
+
+A run that *died* is dropped for the same reason. `capture_run_messages` lets a crashed turn be
+persisted instead of vanishing, but its last response can hold a tool call with no return, and
+replaying that is a malformed request. `state == 'interrupted'` does not identify it — the
+framework writes that only when a tool was cancelled, so a run whose model call raised still
+reads `complete`. The window tests the thing that actually matters: every call in the run has a
+matching return.
+
+`UsageLimits(request_limit, total_tokens_limit)` bounds a single turn. A support turn that needs
+more than eight model requests is looping, and the ceiling is a configured number rather than a
+surprise on the Groq bill.
 
 `ModelRequest.timestamp` is `datetime | None` — a request carries no timestamp until the model
 answers — so `created_at` is nullable rather than invented. A test found this, not a reading of

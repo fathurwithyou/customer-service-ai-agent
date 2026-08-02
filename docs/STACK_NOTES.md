@@ -18,10 +18,11 @@ was real and re-doing it would cost the same day twice.
 | `pydantic` | **2.13.4** | |
 | `pydantic-settings` | **2.14.2** | |
 | `fastapi[standard]` | **0.141.1** | Starlette 1.3.1, uvicorn 0.52.0. |
-| `logfire[fastapi]` | **4.39.0** | ⟲ the extra is now `logfire[fastapi,httpx]` — `instrument_httpx` earns its place, `instrument_sqlite3` did not (§8). |
+| `logfire[fastapi]` | **4.39.0** | ⟲ the extra is now `logfire[fastapi,httpx,sqlalchemy]` — `instrument_httpx` and `instrument_sqlalchemy` earn their place, `instrument_sqlite3` did not (§8). |
 | `arize-phoenix-otel` | **0.16.1** | Only the client; the server runs in Docker. |
 | `openinference-instrumentation-pydantic-ai` | **0.1.18** | |
-| `aiosqlite` | 0.22.1 | |
+| `aiosqlite` | 0.22.1 | Now the SQLAlchemy async driver, not a direct dependency of any code we write. |
+| `sqlalchemy[asyncio]` | 2.0.51 | ⟲ added late; it replaced a hand-rolled `Database` class. See DESIGN §7. |
 | `groq` | 1.6.0 | Transitive via the `[groq]` extra. |
 
 ⟲ There is no `tenacity` and no `[retries]` extra in the installed set any more: the only thing
@@ -346,7 +347,7 @@ with a 400 `output_parse_failed`. `"parsed"` gives the reasoning its own field, 
 pydantic-ai maps to a `ThinkingPart` — out of the content channel entirely. Anywhere above or in
 §6 that recommends `"hidden"`, read `"parsed"`.
 
-`parallel_tool_calls=False` is unchanged and still required: every tool shares one aiosqlite
+`parallel_tool_calls=False` is unchanged and still required: every tool shares one
 connection.
 
 ### Free-tier limits
@@ -405,6 +406,9 @@ logfire.instrument_pydantic(record='all', include=(), exclude=())
 logfire.instrument_pydantic_ai(obj=None, *, include_content=None, version=None, ...)
 logfire.instrument_sqlite3(conn=None)
 ```
+
+⟲ `instrument_sqlalchemy()` replaced this and does emit query spans (`connect`, `SELECT ...`),
+verified with an in-memory exporter before being wired in.
 
 ⟲ `instrument_sqlite3` was wired up and removed: it emitted **zero spans** — none for
 `aiosqlite`, which runs `sqlite3` on a worker thread, and none for plain `sqlite3` in this

@@ -48,7 +48,7 @@ All are optional except the Groq key, and all are prefixed `TOKOKITA_`.
 | `TOKOKITA_GROQ_API_KEY` | — | Groq API key. Unset ⇒ keyless `test` model. |
 | `TOKOKITA_MODEL_NAME` | `openai/gpt-oss-20b` | Any Groq model id. |
 | `TOKOKITA_REASONING_FORMAT` | `parsed` | `parsed` \| `hidden` \| `raw`. `parsed` gives the reasoning its own field, which becomes a `ThinkingPart`; `hidden` only suppresses it, and the model still writes analysis into the text channel where a tool call then fails to parse. Leave **empty** for a non-reasoning model, which would reject the parameter. |
-| `TOKOKITA_DATABASE_PATH` | `./tokokita.db` | SQLite file. |
+| `TOKOKITA_DATABASE_URL` | `sqlite+aiosqlite:///./tokokita.db` | SQLAlchemy async URL. |
 | `TOKOKITA_PHOENIX_ENDPOINT` | `http://localhost:6006` | Empty string disables the Phoenix exporter. |
 | `TOKOKITA_LOGFIRE_TOKEN` | — | Set ⇒ traces also go to Logfire cloud. |
 | `TOKOKITA_LOGFIRE_ENVIRONMENT` | `development` | Logfire environment tag. |
@@ -227,6 +227,7 @@ src/tokokita/
     agents/support/       agent.py (composition root) deps.py output.py
                           instructions.py runner.py (the turn lifecycle)
                           streaming.py (the same turn, as SSE)
+                          history.py (what the model sees, vs what is stored)
     capabilities/         one folder per domain ability, each self-contained:
       customers/          capability.py tools.py services.py schemas.py
       catalog/            capability.py tools.py services.py schemas.py
@@ -240,12 +241,13 @@ src/tokokita/
   api/app.py              FastAPI: create_app factory, /chat, /chat/stream,
                           /chat/{session_id}, /health, /orders/{id}, SPA at /
   api/static/             the built UI -- gitignored, produced by `pnpm build`
-  data/                   schema.sql seed.sql seed.py
+  data/                   tables.py (SQLAlchemy models = the schema) seed.sql seed.py
 frontend/                 React 19 + Vite, TypeScript:
   src/conversation/       Conversation.tsx (owns turn state, the only thing that knows the
                           transport) stream.ts (SSE parsing) Turns/Composer/Header
   src/Markdown.tsx        react-markdown + remark-gfm + rehype-sanitize
 tests/                    conftest.py test_services.py test_guardrails.py test_api.py
+                          test_message_store.py test_history.py
 ```
 
 **The scoping rule:** a capability owns a *domain ability* (a noun — orders, returns). A
